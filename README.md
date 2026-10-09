@@ -30,3 +30,17 @@ defaults write com.pindopro.PinDo model <ollama-model-name>
 
 **Signing note:** the project signs ad-hoc ("Sign to Run Locally"), so macOS may forget the Accessibility grant after a rebuild.
 To fix that for good, pick your Apple ID team under *Signing & Capabilities* in Xcode (a free account works).
+
+## Application skills (first checkpoint)
+
+The first three macOS teaching skills and evaluation cases can be checked on a
+Windows development machine with Python; the native app still requires a Mac.
+
+```powershell
+py -B tools/application_skills.py
+py -B -m unittest discover -s tests -v
+```
+
+See [the skills contract and validation notes](docs/APPLICATION_SKILLS.md).
+These files are independent of the active agent; no hands-on or model validation
+has been completed yet.

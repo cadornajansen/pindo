@@ -35,6 +35,14 @@ enum Agent {
             let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt + procedure)
             agentLog.info("step \(history.count + 1, privacy: .public) in \(Date().timeIntervalSince(started), format: .fixed(precision: 2), privacy: .public)s: \(action.summary, privacy: .public)")
             try Task.checkCancellation()
+            // Small models sometimes "ask" the user's own question back instead of answering it. Retry once.
+            let plain = { (s: String) in s.lowercased().filter { $0.isLetter || $0.isNumber } }
+            if action.action == "ask", let question = action.message, plain(question) == plain(task) {
+                let note = "ask ✗ that repeats the user's question; answer it with done"
+                if history.contains(note) { report("I couldn't answer that. Try rephrasing it."); return }
+                history.append(note)
+                continue
+            }
             let element = action.id.flatMap { id in snap.candidates.first { $0.id == id } }
             // Steps are named by label, not id: menu ids shift when items enable (e.g. after Select All).
             let step = describe(action, element)
@@ -53,6 +61,11 @@ enum Agent {
                 return
             case "open_app":
                 guard let name = action.text?.nonEmpty else { history.append("open_app ✗ no app name given"); continue }
+                // The prompt's "only open an app the task names", enforced: questions were opening Safari.
+                guard name.split(separator: " ").contains(where: { $0.count > 2 && task.localizedCaseInsensitiveContains($0) }) else {
+                    history.append("open_app \(name) ✗ the task doesn't name \(name); answer with done or use the open app")
+                    continue
+                }
                 if appName.localizedCaseInsensitiveContains(name) || name.localizedCaseInsensitiveContains(appName) {
                     history.append("open_app \(name) ✗ \(appName) is already open and in front; use its elements") // small models loop on this
                     continue

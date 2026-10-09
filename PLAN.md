@@ -207,7 +207,7 @@ The estimates assume one developer working part time.
 
 ### M0 — Foundation & model bake-off · *week 1*
 - [ ] Xcode project: menu-bar app, app icon, `Info.plist` usage strings (mic, screen recording).
-- [ ] Install LM Studio/Ollama and pull 4 candidate VLMs: Qwen3-VL-**4B** and **8B**, Qwen2.5-VL-7B, Gemma 3 12B (all 4-bit, *Instruct* variants).
+- [ ] Install LM Studio/Ollama and pull 4 candidate VLMs: Qwen3-VL-**4B** and **8B**, Qwen2.5-VL-7B, Gemma 3 12B (all 4-bit, *Instruct* variants). Also time **AX-ID selection** (text-only: candidate list + question → element ID) on the same models plus Qwen3-1.7B.
 - [ ] Build a test set: **20 screenshots**, each with a question and the correct click target
       (Gmail, Google Sheets, System Settings, Finder, VS Code, Canva, …).
 - [ ] Script it: measure **time-to-first-token**, **total latency** and **pointing accuracy**
@@ -238,7 +238,9 @@ The estimates assume one developer working part time.
 - [ ] Map model coordinates to screen points using the scale factor and display origin (handle multiple monitors).
 - [ ] Full-screen transparent `NSPanel` overlay that is click-through, sits on all Spaces, and stays above other windows.
 - [ ] Animated buddy cursor flies to the point, shows the label, and pulses a highlight.
-- [ ] **AX snap:** read the Accessibility tree near the point and snap the highlight to the real element's frame.
+- [ ] **AX-first grounding (from pindo):** collect ≤ 40 actionable AX controls with request-local IDs, and have the model pick an ID in a **text-only** call. Use the VLM image only when AX is thin (canvas, web). Either way, snap the highlight to the real element's frame.
+- [ ] AX reads run on a dedicated queue with `AXUIElementSetMessagingTimeout` (~250 ms). Every response carries a session + step ID, and late ones are dropped.
+- [ ] Cue types: arrow for buttons, underline for inputs, outline for regions, with the rest of the target window lightly dimmed.
 - [ ] Tool-tip style callouts and numbered step badges.
 - **Exit:** on 10 "where do I click to …?" questions, **≥ 8 land on the right element**, with the pointer moving in **≤ 1.5 s**.
 
@@ -253,7 +255,8 @@ The estimates assume one developer working part time.
 ### M4 — Multi-step guide mode · *weeks 7–8*
 - [ ] "Walk me through X" → model returns a short plan (3–8 steps), shown as a checklist.
 - [ ] Show step N with an annotation and say it out loud.
-- [ ] Detect progress: after each user click (global mouse-up monitor), send a **small crop** and ask a yes/no "is step N done?" (well under 1 s). The full plan comes from one call up front.
+- [ ] The plan is **semantic** (instruction, target, action, expectedResult), with no saved coordinates, and comes from one JSON-schema call up front. Missing values trigger a clarification question.
+- [ ] Detect progress **event-driven** (`AXObserver` + mouse-up monitor, never polling). Verify cheapest-first: did the click land in the target, then AX state, then a small crop with a yes/no model check. Only positive evidence advances.
 - [ ] Recover: if the screen doesn't match, re-plan from the current state.
 - [ ] Local session memory, so the conversation keeps context for the duration of the task.
 - **Exit:** completes 5 real tasks end to end without the user touching the keyboard to ask again, for example:
@@ -284,7 +287,137 @@ The estimates assume one developer working part time.
 
 ---
 
-## 7. Risks & mitigations
+## 7. Phase 2: hyper-local computer use (after the MVP)
+
+**Goal:** "Summarize this sheet by region and turn it into 3 slides" gets done **on the Mac, by PinDo**, in
+Excel, Word, PowerPoint, Canva and other everyday apps. The MVP teaches (*you* click). Phase 2 adds driving.
+
+### Action ladder: APIs first, pixels last
+
+The planner emits **semantic** actions ("bold A1:C1", "add a slide titled Q3", "click *Insert ▸ Table*").
+The executor runs each one on the **highest rung that can do it**. Only rung 5 uses screen coordinates, and it
+grounds them fresh every time.
+
+| Rung | How | Speed | Reliability | Best for |
+|---|---|---|---|---|
+| 1. **App scripting** | AppleScript/JXA via `NSAppleScript`. Excel, Word, PowerPoint, Keynote, Numbers, Pages, Finder and Mail all have dictionaries | ~50–300 ms | Highest | Cell values, formulas, ranges, charts, text, styles, slides, shapes |
+| 2. **Accessibility actions** | `AXPress`, set `AXValue`, and run any menu-bar command via AX | ~100 ms | High | Buttons, menus and fields in any native app |
+| 3. **Keyboard shortcuts** | `CGEvent` key events | ~instant | Medium | Office, Canva and Google Docs shortcuts |
+| 4. **File-level edits** (optional) | Write `.xlsx`/`.docx`/`.pptx` directly when the app isn't open | fast | High | Bulk generation. Add only when scripting hits a gap |
+| 5. **Vision + synthetic mouse** | Ground with the VLM, then a `CGEvent` click or drag | 1–2 s | Lowest | Canvas UIs: Canva, Figma, web apps |
+
+**Why this is the big speed and accuracy win:** for Office, the model reads the document **as text** (cell
+values, slide text) through scripting instead of reading pixels. That means fewer tokens, no misreads and no
+pointing errors. Most steps never need a screenshot.
+
+### App coverage (what to expect)
+
+| App | Main rungs | Expectation |
+|---|---|---|
+| Excel / Numbers | 1 → 2 | Strong: read and write ranges, formulas, formatting, charts, sheets |
+| Word / Pages | 1 → 2 | Strong: text, styles, headings, tables, find/replace |
+| PowerPoint / Keynote | 1 → 2 | Strong: slides, layouts, text, images, tables |
+| Google Docs / Sheets (browser) | 2 → 3 → 5 | Medium: web content via AX plus rich shortcuts |
+| **Canva** (desktop or browser) | 2 → 3 → 5 | **Hardest.** No local API, and the canvas is pixels. Expect slower, vision-driven steps and a fallback to Teach mode |
+| Finder / files | Native `FileManager` with pindo-style review | Strong |
+
+### Agent loop
+
+`observe → plan → act → verify → next / replan`
+- **Observe:** AX snapshot plus app state from scripting. A screenshot only when those are thin.
+- **Plan:** semantic steps with JSON-schema-constrained output (`clarification | plan | tool | complete`). Ask a
+  clarification when a required value is missing. Never invent it.
+- **Act:** one step, on the highest workable rung.
+- **Verify, cheapest evidence first:** script readback → AX state → screenshot + model. A step only counts as done
+  with **positive evidence**. Clicking alone doesn't count.
+- **Caps:** 30 steps, 3 retries per step. After that, stop and hand back in Teach mode.
+
+### Control modes and safety rails
+
+| Mode | Behavior |
+|---|---|
+| **Teach** (MVP) | Points and explains. You click |
+| **Copilot** | Shows the next action as a ghost preview. Press ↩ to run it, Esc to skip |
+| **Autopilot** | Runs the whole plan inside the apps you allowed, pausing at any "always ask" action |
+
+- **Always ask:** send/share/publish, delete, purchase/payment, overwriting or saving over a file, password/sign-in
+  fields, and any app not on the allowlist.
+- **Kill switch:** Esc, or slamming the mouse into a screen corner, stops instantly. Any physical input from you
+  pauses Autopilot.
+- **Undo:** save a versioned copy of a document before Autopilot first touches it.
+- **Prompt injection:** text on screen, in documents and from tools is **data, never instructions**.
+- **Action log:** every executed action is listed with its rung and evidence, and can be replayed for debugging.
+- macOS gotchas: app scripting needs the `com.apple.security.automation.apple-events` entitlement and a one-time
+  Automation prompt per app. It doesn't work in the Mac App Store sandbox, so **ship as a notarized DMG**.
+
+### Models for computer use (24 GB)
+
+- Keep **one VLM resident** (the M0 winner, for example Qwen3-VL-8B) for planning, AX-ID selection (text-only, so fast)
+  and verification.
+- For rung 5, run a bake-off of local **GUI-specialist** models: UI-TARS-1.5-7B, OpenCUA-7B, Holo1.5-7B, and **MAI-UI-2B**
+  (pindo's pick). Load only one at a time.
+- Optional cloud: Claude computer use for tasks the local stack fails. It goes through the **same** executor,
+  approvals and log.
+
+### Speed targets for computer use
+
+| Action type | Target (decide + act) |
+|---|---|
+| Scripting (rung 1) | ≤ 0.5 s |
+| AX / shortcut (rungs 2–3) | ≤ 1 s |
+| Vision click (rung 5) | ≤ 3 s |
+| Typical 10-step Office task | **≤ 30 s** end to end |
+
+### Phase 2 milestones
+
+#### M8 — Executor + safety rails · *weeks 12–13*
+- [ ] Executor for rungs 2, 3 and 5 (AX press/value, menu commands, key events, grounded click).
+- [ ] Teach / Copilot / Autopilot modes, the always-ask list, the kill switch, versioned copies and the action log.
+- **Exit:** 20 single actions across 5 apps all correct. The kill switch stops within 100 ms. Zero actions outside the allowlist.
+
+#### M9 — Office through scripting · *weeks 14–15*
+- [ ] About 15 typed tools for Excel, Word and PowerPoint: read/write range, format range, add sheet, insert chart, insert/format
+      text, apply heading styles, add slide, set slide text, insert image, insert table. Each one reads back to verify.
+- **Exit:** a 10-task suite (for example "clean this table and add totals", "chart column C", "turn this Word outline into 5 slides",
+  "make all headings H2") with **≥ 8/10 done without help**, each in **≤ 60 s**.
+
+#### M10 — Canva & web apps · *weeks 16–17*
+- [ ] Canva and Google Docs/Sheets via AX, shortcuts and vision. GUI-model bake-off for rung 5.
+- **Exit:** 5 Canva tasks (edit text, change color, resize design, add element, export PDF) with ≥ 3/5 succeeding. Failures stop
+  cleanly and hand back to Teach mode.
+
+#### M11 — Multi-app workflows · *week 18*
+- [ ] Cross-app tasks: an Excel range → PowerPoint chart slide, a Word doc → PDF → **Mail draft** (a draft, never sent).
+- **Exit:** 3 cross-app workflows run end to end, stopping only for the always-ask confirmations.
+
+---
+
+## 8. What we take from pindo (Windows reference)
+
+[cadornajansen/pindo](https://github.com/cadornajansen/pindo) is a Windows C#/WPF tutor that's cloud-backed today
+(OpenRouter, AssemblyAI, ElevenLabs). Its code doesn't port, but these **patterns** do, and several make PinDo faster:
+
+| pindo pattern | PinDo (macOS) version | Why it helps |
+|---|---|---|
+| **Accessibility candidates + model picks an ID.** About 40 actionable controls, request-local IDs, resolved back to the real element | AX tree → compact candidate list → the model returns `element-12`, never raw coordinates, whenever AX has the target | **Text-only call, so much faster** than an image. Exact element frames, so pointing is exact |
+| **Normalized 0–1000 grounding + strict validation** (point inside box, confidence ≥ 0.65, null when nothing is found) | Same contract for the vision fallback. No highlight on low confidence | Avoids confidently wrong arrows |
+| **JSON-schema output** (`clarification / plan / tool / complete`) | Ollama `format` schema or MLX constrained decoding | No parse failures and fewer wasted tokens |
+| **Semantic steps, no saved coordinates.** Each step has instruction, target, action, expectedResult | Plans are semantic, and each step is grounded fresh | Survives window moves and UI changes |
+| **Positive-evidence verification.** A click alone never advances | Verification ladder: script readback → AX state → screenshot + model | Cheap checks first, so it's fast *and* correct |
+| **Event-driven invalidation, never polling** (`TargetContextWatcher`) | `AXObserver` (focus, value, window created/moved) + `NSWorkspace` app-switch notifications | No screenshot loops, so less CPU and battery and faster reactions |
+| **Session generation numbers** drop late results after cancel | Same: every request carries a session + step ID | No stale arrows after Esc |
+| **Accessibility work off the UI thread with a bounded worker.** Never block on a hung provider | A dedicated AX queue plus `AXUIElementSetMessagingTimeout` (~250 ms) | A frozen app can't freeze PinDo |
+| **One-shot window capture that excludes its own overlay** | `SCContentFilter` for the target window. Overlay uses `sharingType = .none` | Smaller images and no self-pointing |
+| **Host-owned tool review.** The model proposes, the host builds the preview, approvals are single-use and expire after 5 min, never overwrite | Same approval layer for every Phase 2 action and tool | Safe computer use without slowing the safe actions |
+| **Contextual cues:** arrow for buttons, underline for inputs, outline for regions, dim the rest of the window, static under reduced motion | Same cue vocabulary in the overlay | Clearer than a single highlight style |
+| **App-specific planner hints** (for example "PowerPoint tables: use the Insert Table dialog, not the hover grid") | A small per-app hint file fed into the planner prompt | Big accuracy gain for little effort |
+| Local model notes: **MAI-UI-2B** (grounding), **Qwen3-1.7B** (text planning) | Added to the M0 / M10 bake-offs | Cheap, small candidates worth measuring |
+
+**Not taken:** the Windows code, the three cloud services as defaults, and the heavy doc process.
+
+---
+
+## 9. Risks & mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -295,19 +428,23 @@ The estimates assume one developer working part time.
 | Long-press hijacks normal drags | Trigger only on blank areas (AX check), cancel on > 6 px movement, release the mouse at the original point, per-app exclusion list |
 | No `Fn` key on external keyboards | Configurable shortcut, `⌥Space` fallback |
 | macOS permission friction | Guided onboarding, plus detecting and re-prompting for revoked permissions |
+| Autopilot does something harmful | Teach/Copilot by default, always-ask list, app allowlist, kill switch, versioned copies, action log (§7) |
+| Office scripting gaps | Fall back down the ladder (AX → shortcuts → vision), and add file-level edits only where a gap repeats |
+| Canva is canvas-only | Vision rung + shortcuts, honest expectations, clean hand-back to Teach mode |
 | Model churn | The model is a setting. Re-run the M0 bake-off script whenever a new model drops |
 
 ---
 
-## 8. Success metrics for the MVP
+## 10. Success metrics for the MVP
 
 - Voice → first spoken word ≤ **2 s** locally, pointer ≤ **1.5 s**, fast-path commands < **0.5 s**
 - Pointing accuracy ≥ **80%** on the test set (with AX snap)
 - **5/5** guided tasks completed
 - **$0** marginal cost per query in local mode
 - 5 non-technical testers each finish one real task they couldn't do before
+- **Phase 2:** ≥ 8/10 Office tasks done hands-free in ≤ 60 s each, zero unapproved always-ask actions
 
-## 9. Open questions
+## 11. Open questions
 
 1. Pricing: free + open source, or a one-time license (like ~$29)? The BYOK cloud keeps either option viable.
 2. Should the MVP bundle the model runtime (mlx-swift) or require LM Studio/Ollama? Recommendation: require it for development builds and bundle it for the first public release.

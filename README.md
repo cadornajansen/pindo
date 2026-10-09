@@ -18,7 +18,8 @@ open build/Build/Products/Debug/PinDo.app
 Or open `PinDo.xcodeproj` in Xcode and press ⌘R.
 
 1. On first launch, allow **PinDo** in *System Settings → Privacy & Security → Accessibility*. The hotkey starts within 2 s, with no relaunch.
-2. Press **`Fn + Space`** anywhere. The quick bar appears at the bottom of the window you're in. Type a question and press ↩. `Esc`, `Fn + Space` or clicking elsewhere closes it.
+2. Press **`Fn + Space`** anywhere. The quick bar appears at the bottom of the window you're in. Type a question or a task and press ↩. `Esc`, `Fn + Space` or clicking elsewhere closes it.
+   - **It acts in the app you're in.** Try "type 'Hello' in the document", "select all and make it bold", or "open Excel". PinDo reads the app's controls and menu commands through Accessibility, and the local model picks one action per step (max 8 steps). It asks before Send, Delete, Buy, Quit and similar actions, and never touches password fields. While it works, the button becomes **Stop** (`Fn + Space` stops it too).
 3. There's no `Fn` key on your keyboard? Use the hand icon in the menu bar → *Open Quick Bar*.
 
 The model defaults to `qwen3-vl:8b` (`ollama pull qwen3-vl:8b`). Switch it with:

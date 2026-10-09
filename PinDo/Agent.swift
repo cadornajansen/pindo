@@ -15,6 +15,9 @@ enum Agent {
 
         var history: [String] = []
         var lastProposal = ""
+        // Typing or Return over a selection replaces it; only allow that when the task asks to overwrite.
+        // ponytail: keyword heuristic; revisit when tasks get more varied.
+        let keepSelection = task.contains(/\b(replace|overwrite|change|rewrite|rename|delete|remove|instead)\b/.ignoresCase())
         for _ in 1...maxSteps {
             try Task.checkCancellation()
             guard let app = NSWorkspace.shared.frontmostApplication else { break }
@@ -25,15 +28,17 @@ enum Agent {
             let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt)
             agentLog.info("step \(history.count + 1, privacy: .public) in \(Date().timeIntervalSince(started), format: .fixed(precision: 2), privacy: .public)s: \(action.summary, privacy: .public)")
             try Task.checkCancellation()
-            if action.summary == lastProposal {
+            let element = action.id.flatMap { id in snap.candidates.first { $0.id == id } }
+            // Steps are named by label, not id: menu ids shift when items enable (e.g. after Select All).
+            let step = describe(action, element)
+            if step == lastProposal {
                 report(history.last?.hasSuffix("✓") == true
-                    ? "Stopped before repeating “\(action.summary)”. The task is probably finished. Tell me if it isn't."
-                    : "I keep trying the same step (\(action.summary)), so I stopped. Try rephrasing the task.")
+                    ? "Stopped before repeating \(step). The task is probably finished. Tell me if it isn't."
+                    : "I keep trying the same step (\(step)), so I stopped. Try rephrasing the task.")
                 return
             }
-            lastProposal = action.summary
+            lastProposal = step
 
-            let element = action.id.flatMap { id in snap.candidates.first { $0.id == id } }
             var settle: Duration = .milliseconds(500)
             switch action.action {
             case "done", "ask":
@@ -60,6 +65,7 @@ enum Agent {
             case "type":
                 guard let element, let text = action.text, !text.isEmpty else { history.append("type ✗ needs a listed id and text"); continue }
                 report("▸ Typing into “\(element.label)”")
+                if !keepSelection { AX.collapseSelection(element.element) }
                 AX.type(text, into: element.element, pid: pid)
             case "key":
                 guard let combo = action.combo?.nonEmpty ?? action.text?.nonEmpty, let key = Keys.parse(combo) else {
@@ -67,15 +73,23 @@ enum Agent {
                 }
                 if Keys.isRisky(combo, appName: appName), !(await confirm("Press \(combo) in \(appName)?")) { report("Stopped. No key was pressed."); return }
                 report("▸ Pressing \(combo)")
+                if !keepSelection, ["return", "enter", "tab", "space"].contains(combo.lowercased()), let focused = AX.focusedElement(pid: pid) {
+                    AX.collapseSelection(focused)
+                }
                 Keys.post(key, pid: pid)
             default:
                 history.append("\(action.action) ✗ not a valid action")
                 continue
             }
-            history.append(action.summary + " ✓")
+            history.append(step + " ✓")
             try await Task.sleep(for: settle)
         }
         report("Stopped after \(maxSteps) steps. Tell me what's left and I'll continue.")
+    }
+
+    private static func describe(_ action: Ollama.Action, _ element: Candidate?) -> String {
+        [action.action, element.map { "“\($0.label)”" } ?? action.id, action.combo, action.text.map { "\"\($0.prefix(40))\"" }]
+            .compactMap { $0 }.joined(separator: " ")
     }
 
     /// "open Safari", "launch Excel", "open youtube.com": no model call needed.
@@ -142,6 +156,7 @@ nonisolated enum AX {
         "AXTextField", "AXTextArea", "AXComboBox", "AXLink",
     ]
     private static let textRoles: Set<String> = ["AXTextField", "AXTextArea", "AXComboBox"]
+    private static let skippedMenus: Set<String> = ["Services", "Open Recent"]
     private static let stopWords: Set<String> = ["the", "and", "for", "with", "this", "that", "make", "please", "can", "you", "into", "from", "all", "new"]
 
     static func snapshot(pid: pid_t, appName: String, task: String) -> Snapshot {
@@ -165,7 +180,7 @@ nonisolated enum AX {
         var menuItems: [(path: String, el: AXUIElement)] = []
         if let bar: AXUIElement = attr(app, kAXMenuBarAttribute), let tops: [AXUIElement] = attr(bar, kAXChildrenAttribute) {
             for top in tops.dropFirst() { // skip the Apple menu
-                if let title: String = attr(top, kAXTitleAttribute) { collectMenu(top, path: title, depth: 0, into: &menuItems) }
+                if let title: String = attr(top, kAXTitleAttribute), title != "Window" { collectMenu(top, path: title, depth: 0, into: &menuItems) }
             }
         }
         let ranked = menuItems
@@ -192,6 +207,23 @@ nonisolated enum AX {
         }
     }
 
+    static func focusedElement(pid: pid_t) -> AXUIElement? {
+        attr(AXUIElementCreateApplication(pid), kAXFocusedUIElementAttribute)
+    }
+
+    /// Moves the caret to the end of the current selection so new text is added, not swapped in.
+    static func collapseSelection(_ el: AXUIElement) {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXSelectedTextRangeAttribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXValueGetTypeID() else { return }
+        var range = CFRange()
+        guard AXValueGetValue(value as! AXValue, .cfRange, &range), range.length > 0 else { return }
+        var end = CFRange(location: range.location + range.length, length: 0)
+        if let collapsed = AXValueCreate(.cfRange, &end) {
+            AXUIElementSetAttributeValue(el, kAXSelectedTextRangeAttribute as CFString, collapsed)
+        }
+    }
+
     private static func candidate(_ el: AXUIElement, id: String) -> Candidate? {
         guard let role: String = attr(el, kAXRoleAttribute), actionableRoles.contains(role) else { return nil }
         if let enabled: Bool = attr(el, kAXEnabledAttribute), !enabled { return nil }
@@ -212,7 +244,7 @@ nonisolated enum AX {
         guard depth < 3, let menus: [AXUIElement] = attr(el, kAXChildrenAttribute) else { return }
         for menu in menus {
             for item in (attr(menu, kAXChildrenAttribute) as [AXUIElement]?) ?? [] {
-                guard let title: String = attr(item, kAXTitleAttribute), !title.isEmpty else { continue }
+                guard let title: String = attr(item, kAXTitleAttribute), !title.isEmpty, !skippedMenus.contains(title) else { continue }
                 if let enabled: Bool = attr(item, kAXEnabledAttribute), !enabled { continue }
                 let itemPath = "\(path) > \(title)"
                 if let sub: [AXUIElement] = attr(item, kAXChildrenAttribute), !sub.isEmpty {

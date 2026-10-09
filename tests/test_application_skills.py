@@ -68,7 +68,7 @@ class ApplicationSkillsTests(unittest.TestCase):
     def test_version_rejects_bool_and_unsupported_values(self) -> None:
         for path in (self.skill_path, self.case_path):
             original = self.read(path)
-            for version in (True, False, 2, "1", 1.0, None):
+            for version in (True, False, 3, "1", 1.0, None):
                 with self.subTest(path=path.name, version=version):
                     changed = deepcopy(original)
                     changed["schema_version"] = version
@@ -110,7 +110,10 @@ class ApplicationSkillsTests(unittest.TestCase):
                 self.assert_invalid(f".{field}: must match skill")
 
     def test_every_skill_needs_evaluation_coverage(self) -> None:
-        self.case_path.unlink()
+        skill_id = self.read(self.case_path)["skill_id"]
+        for path in (self.root / "evaluations/cases").rglob("*.json"):
+            if self.read(path)["skill_id"] == skill_id:
+                path.unlink()
         self.assert_invalid("skill requires at least one evaluation case")
 
     def test_coordinate_and_command_fields_are_rejected_in_records(self) -> None:

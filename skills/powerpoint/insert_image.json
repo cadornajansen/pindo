@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "powerpoint.insert_image",
   "application_id": "microsoft.powerpoint",
   "application": "Microsoft PowerPoint",
@@ -18,32 +18,67 @@
     {
       "id": "open_insert",
       "objective": "Ask the user to open the Insert menu in PowerPoint.",
-      "target": {"role": "menu", "semantic_name": "Insert"},
-      "expected_result": ["The Insert menu is visible and offers picture insertion."]
+      "target": {
+        "role": "menu",
+        "semantic_name": "Insert"
+      },
+      "expected_result": [
+        "The Insert menu is visible and offers picture insertion."
+      ],
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
+      "verification": "visual"
     },
     {
       "id": "open_picture",
       "objective": "Ask the user to point to Picture in the Insert menu to reveal its submenu.",
-      "target": {"role": "menu_item", "semantic_name": "Picture"},
-      "expected_result": ["Picture source choices are visible."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "Picture"
+      },
+      "expected_result": [
+        "Picture source choices are visible."
+      ],
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
+      "verification": "visual"
     },
     {
       "id": "choose_local_source",
       "objective": "Ask the user to choose Picture From File.",
-      "target": {"role": "menu_item", "semantic_name": "Picture From File"},
-      "expected_result": ["A local file selection dialog appears."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "Picture From File"
+      },
+      "expected_result": [
+        "A local file selection dialog appears."
+      ],
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
+      "verification": "visual"
     },
     {
       "id": "select_image",
       "objective": "Ask the user to locate and select the intended local image.",
-      "target": {"role": "file", "semantic_name": "The image identified by the user"},
-      "expected_result": ["The intended image is selected in the file dialog."]
+      "target": {
+        "role": "file",
+        "semantic_name": "The image identified by the user"
+      },
+      "expected_result": [
+        "The intended image is selected in the file dialog."
+      ],
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
+      "verification": "visual"
     },
     {
       "id": "insert_selected_image",
       "objective": "Ask the user to choose Insert and inspect the current slide.",
-      "target": {"role": "button", "semantic_name": "Insert"},
-      "expected_result": ["The selected image appears on the intended slide."]
+      "target": {
+        "role": "button",
+        "semantic_name": "Insert"
+      },
+      "expected_result": [
+        "The selected image appears on the intended slide."
+      ],
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
+      "verification": "visual"
     }
   ],
   "success_criteria": [
@@ -72,7 +107,11 @@
   ],
   "validation": {
     "status": "unverified",
-    "documented_versions": ["PowerPoint for Microsoft 365 for Mac", "PowerPoint 2024 for Mac", "PowerPoint 2021 for Mac"],
+    "documented_versions": [
+      "PowerPoint for Microsoft 365 for Mac",
+      "PowerPoint 2024 for Mac",
+      "PowerPoint 2021 for Mac"
+    ],
     "tested_versions": [],
     "notes": "Official documentation reviewed on 2026-10-10. No hands-on Mac or PowerPoint testing was performed; documented applicability does not establish tested compatibility."
   },
@@ -87,5 +126,29 @@
       "url": "https://support.microsoft.com/en-us/office/graphics-visuals/replace-or-delete-a-picture-in-microsoft-office",
       "research_date": "2026-10-10"
     }
-  ]
+  ],
+  "surface": "desktop",
+  "difficulty": "foundation",
+  "concepts": [
+    {
+      "name": "Picture sources",
+      "explanation": "Local pictures come from a file dialog; online pictures require a separate source and network access."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "task_details",
+      "question": "Which local image and slide should we use?"
+    }
+  ],
+  "requirements": [
+    "An editable local document or writable folder is available; use synthetic practice files."
+  ],
+  "match_groups": [
+    [
+      "picture",
+      "image"
+    ]
+  ],
+  "related_skills": []
 }

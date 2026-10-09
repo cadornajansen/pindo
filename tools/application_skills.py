@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 
 class ValidationError(ValueError):
-    """A library file or field does not satisfy the version-1 contract."""
+    """A library file or field does not satisfy the documented contract."""
 
 
 _DOTTED_ID = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
@@ -66,8 +66,8 @@ def _strings(value: Any, location: str, *, allow_empty: bool = False) -> None:
 
 
 def _version(value: Any, location: str) -> None:
-    if type(value) is not int or value != 1:
-        _fail(location, "expected integer schema version 1")
+    if type(value) is not int or value not in (1, 2):
+        _fail(location, "expected integer schema version 1 or 2")
 
 
 def _target(value: Any, location: str) -> None:
@@ -92,11 +92,17 @@ def _validation(value: Any, location: str, *, skill: bool) -> str:
 
 
 def _skill(value: Any, location: str) -> dict[str, Any]:
-    skill = _record(value, {
+    if isinstance(value, dict) and "schema_version" in value:
+        _version(value["schema_version"], f"{location}.schema_version")
+    fields = {
         "schema_version", "id", "application_id", "application", "platform", "title",
         "intents", "prerequisites", "success_criteria", "constraints", "steps",
         "recovery", "sources", "validation",
-    }, location)
+    }
+    rich = isinstance(value, dict) and value.get("schema_version") == 2
+    if rich:
+        fields |= {"surface", "difficulty", "concepts", "inputs", "requirements", "match_groups", "related_skills"}
+    skill = _record(value, fields, location)
     _version(skill["schema_version"], f"{location}.schema_version")
     _identifier(skill["id"], _DOTTED_ID, f"{location}.id")
     _identifier(skill["application_id"], _DOTTED_ID, f"{location}.application_id")
@@ -108,7 +114,10 @@ def _skill(value: Any, location: str) -> dict[str, Any]:
     step_ids: set[str] = set()
     for index, value in enumerate(_list(skill["steps"], f"{location}.steps")):
         step_location = f"{location}.steps[{index}]"
-        step = _record(value, {"id", "objective", "target", "expected_result"}, step_location)
+        step_fields = {"id", "objective", "target", "expected_result"}
+        if rich:
+            step_fields |= {"why", "verification"}
+        step = _record(value, step_fields, step_location)
         _identifier(step["id"], _STEP_ID, f"{step_location}.id")
         if step["id"] in step_ids:
             _fail(f"{step_location}.id", f"duplicate step ID {step['id']!r}")
@@ -116,6 +125,9 @@ def _skill(value: Any, location: str) -> dict[str, Any]:
         _text(step["objective"], f"{step_location}.objective")
         _target(step["target"], f"{step_location}.target")
         _strings(step["expected_result"], f"{step_location}.expected_result")
+        if rich:
+            _text(step["why"], f"{step_location}.why")
+            _choice(step["verification"], {"visual", "user_confirmation"}, f"{step_location}.verification")
     for index, value in enumerate(_list(skill["recovery"], f"{location}.recovery")):
         recovery_location = f"{location}.recovery[{index}]"
         recovery = _record(value, {"condition", "guidance"}, recovery_location)
@@ -140,6 +152,23 @@ def _skill(value: Any, location: str) -> dict[str, Any]:
         except ValueError:
             _fail(f"{source_location}.research_date", "expected a valid YYYY-MM-DD date")
     _validation(skill["validation"], f"{location}.validation", skill=True)
+    if rich:
+        _choice(skill["surface"], {"desktop", "browser"}, f"{location}.surface")
+        _choice(skill["difficulty"], {"foundation", "intermediate", "advanced"}, f"{location}.difficulty")
+        _strings(skill["requirements"], f"{location}.requirements")
+        _strings(skill["related_skills"], f"{location}.related_skills", allow_empty=True)
+        for index, group in enumerate(_list(skill["match_groups"], f"{location}.match_groups")):
+            _strings(group, f"{location}.match_groups[{index}]")
+        for field, keys in (("concepts", {"name", "explanation"}), ("inputs", {"name", "question"})):
+            names: set[str] = set()
+            for index, item in enumerate(_list(skill[field], f"{location}.{field}", allow_empty=field == "inputs")):
+                item_location = f"{location}.{field}[{index}]"
+                item = _record(item, keys, item_location)
+                for key in keys:
+                    _text(item[key], f"{item_location}.{key}")
+                if item["name"] in names:
+                    _fail(item_location, "duplicate name")
+                names.add(item["name"])
     return skill
 
 
@@ -234,16 +263,81 @@ def load_library(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]
         cases.append(case)
     for skill_id in skills_by_id.keys() - covered_ids:
         _fail(f"{skill_locations[skill_id]}.id", "skill requires at least one evaluation case")
+    for skill in skills:
+        for related in skill.get("related_skills", []):
+            if related not in skills_by_id or related == skill["id"]:
+                _fail(skill_locations[skill["id"]], f"invalid related skill {related!r}")
     return skills, cases
+
+
+def load_profiles(root: Path) -> list[dict[str, Any]]:
+    value, location = _read(root / "application_profiles.json", root)
+    document = _record(value, {"schema_version", "applications"}, location)
+    if type(document["schema_version"]) is not int or document["schema_version"] != 2:
+        _fail(location, "application profiles require schema version 2")
+    profiles = _list(document["applications"], location)
+    identifiers: set[str] = set()
+    for index, value in enumerate(profiles):
+        here = f"{location}.applications[{index}]"
+        profile = _record(value, {"id", "name", "aliases", "bundle_ids", "domains", "surface", "terminology"}, here)
+        _identifier(profile["id"], _DOTTED_ID, f"{here}.id")
+        if profile["id"] in identifiers:
+            _fail(here, "duplicate application ID")
+        identifiers.add(profile["id"])
+        _text(profile["name"], f"{here}.name")
+        _choice(profile["surface"], {"desktop", "browser"}, f"{here}.surface")
+        for field in ("aliases", "bundle_ids", "domains", "terminology"):
+            _strings(profile[field], f"{here}.{field}", allow_empty=field in {"bundle_ids", "domains"})
+        if profile["surface"] == "browser" and not profile["domains"]:
+            _fail(here, "browser profiles require domains")
+        for domain in profile["domains"]:
+            if re.fullmatch(r"[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}", domain) is None:
+                _fail(here, "expected a hostname without URL paths or wildcards")
+    return profiles
+
+
+def match_skills(skills: list[dict[str, Any]], application_id: str, instruction: str) -> list[str]:
+    """All keyword groups must match; multiple matches are deliberately ambiguous."""
+    normalized = " " + " ".join(re.findall(r"[a-z0-9]+", instruction.lower())) + " "
+    result: list[str] = []
+    for skill in skills:
+        if skill["application_id"] != application_id or skill["schema_version"] != 2:
+            continue
+        groups = skill["match_groups"]
+        if all(any(" " + " ".join(re.findall(r"[a-z0-9]+", term.lower())) + " " in normalized for term in group) for group in groups):
+            result.append(skill["id"])
+    return sorted(result)
+
+
+def bundle_data(root: Path) -> str:
+    skills, _ = load_library(root)
+    profiles = load_profiles(root)
+    profiles_by_id = {profile["id"]: profile for profile in profiles}
+    for skill in skills:
+        if skill["schema_version"] != 2:
+            _fail(skill["id"], "runtime bundle requires version 2")
+        profile = profiles_by_id.get(skill["application_id"])
+        if profile is None or profile["surface"] != skill["surface"]:
+            _fail(skill["id"], "missing profile or mismatched surface")
+    return json.dumps({"schema_version": 2, "applications": profiles, "skills": skills}, ensure_ascii=False, indent=2) + "\n"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--bundle", type=Path, help="Write the deterministic app resource")
+    parser.add_argument("--check-bundle", type=Path, help="Fail if the bundled app resource is stale")
     arguments = parser.parse_args()
     try:
         skills, cases = load_library(arguments.root)
-    except ValidationError as error:
+        if arguments.bundle or arguments.check_bundle:
+            content = bundle_data(arguments.root)
+            if arguments.check_bundle and arguments.check_bundle.read_text(encoding="utf-8") != content:
+                _fail(str(arguments.check_bundle), "bundle is stale; regenerate with --bundle")
+            if arguments.bundle:
+                arguments.bundle.parent.mkdir(parents=True, exist_ok=True)
+                arguments.bundle.write_text(content, encoding="utf-8", newline="\n")
+    except (ValidationError, OSError) as error:
         print(f"Validation failed: {error}", file=sys.stderr)
         return 1
     print(f"Validated {len(skills)} skills and {len(cases)} evaluation cases. No app or model was run.")

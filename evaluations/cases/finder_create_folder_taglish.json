@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.finder.create_folder.taglish",
+  "skill_id": "finder.create_folder",
+  "application_id": "apple.finder",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Synthetic practice fixture. Finder is open at the parent location chosen by the user. The user has permission to create a folder there. The intended folder name is known. Requirements confirmed; current step has not been performed.",
+  "user_instruction": "Paano gumawa ng folder na Lesson Files?",
+  "expected_next_action": {
+    "objective": "Ask the user to open Finder's File menu.",
+    "target": {
+      "role": "menu",
+      "semantic_name": "File"
+    }
+  },
+  "expected_result": [
+    "Finder's File menu is visible."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

@@ -6,7 +6,7 @@ import SwiftUI
 final class QuickBar {
     private let model = QuickBarModel()
     private lazy var panel = QuickBarPanel(rootView: QuickBarView(model: model, onClose: { [weak self] in self?.hide() }),
-                                           onResignKey: { [weak self] in if self?.model.isBusy == false { self?.hide() } })
+                                           onResignKey: { [weak self] in if self?.model.isBusy == false && self?.model.tutor.active == false { self?.hide() } })
     private var isShown = false
 
     init() { _ = panel }
@@ -112,6 +112,8 @@ final class QuickBarModel {
     var isBusy = false
     var awaitingApproval = false
     var focusTick = 0
+    var teachMode = false
+    let tutor = TutorSession()
     private var task: Task<Void, Never>?
     private var approval: CheckedContinuation<Bool, Never>?
 
@@ -121,6 +123,8 @@ final class QuickBarModel {
         guard !prompt.isEmpty, !isBusy else { return }
         text = ""
         answer = ""
+        if teachMode { tutor.start(prompt); return }
+        tutor.stop()
         isBusy = true
         task = Task {
             do {
@@ -137,6 +141,7 @@ final class QuickBarModel {
     }
 
     func cancel() {
+        tutor.stop()
         task?.cancel()
         task = nil
         resolveApproval(false)
@@ -171,6 +176,11 @@ struct QuickBarView: View {
     var body: some View {
         VStack(spacing: 10) {
             Spacer(minLength: 0)
+            if model.teachMode {
+                ScrollView { TutorView(session: model.tutor) }
+                    .frame(maxHeight: 300)
+                    .background(card)
+            }
             if !model.answer.isEmpty {
                 ViewThatFits(in: .vertical) {
                     answerText
@@ -189,6 +199,10 @@ struct QuickBarView: View {
 
     private var bar: some View {
         HStack(spacing: 14) {
+            Toggle("Teach", isOn: $model.teachMode)
+                .toggleStyle(.button)
+                .disabled(model.isBusy)
+                .onChange(of: model.teachMode) { model.tutor.stop() }
             Image(systemName: "hand.point.up.left.fill")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(accent)

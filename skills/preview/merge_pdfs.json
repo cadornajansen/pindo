@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "preview.merge_pdfs",
   "application_id": "apple.preview",
   "application": "Preview",
@@ -19,56 +19,119 @@
     {
       "id": "open_file",
       "objective": "In the destination PDF, ask the user to open File before making changes. Preview automatically saves edits.",
-      "target": {"role": "menu", "semantic_name": "File"},
-      "expected_result": ["The destination document's File menu is visible."]
+      "target": {
+        "role": "menu",
+        "semantic_name": "File"
+      },
+      "expected_result": [
+        "The destination document's File menu is visible."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "preserve_original",
       "objective": "Ask the user to choose Duplicate and work in the duplicate to preserve the original PDF.",
-      "target": {"role": "menu_item", "semantic_name": "Duplicate"},
-      "expected_result": ["A duplicate destination document opens; the original remains separate."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "Duplicate"
+      },
+      "expected_result": [
+        "A duplicate destination document opens; the original remains separate."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "preserve_sources",
       "objective": "In each remaining source PDF, ask the user to choose File > Duplicate. Identify the resulting working copies and use them for every subsequent page drag.",
-      "target": {"role": "menu_item", "semantic_name": "File > Duplicate in each source PDF"},
-      "expected_result": ["Every participating PDF has a separate working copy; all originals remain separate from the merge."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "File > Duplicate in each source PDF"
+      },
+      "expected_result": [
+        "Every participating PDF has a separate working copy; all originals remain separate from the merge."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "open_view",
       "objective": "Ask the user to open View in the duplicate destination PDF.",
-      "target": {"role": "menu", "semantic_name": "View"},
-      "expected_result": ["The View menu is visible and offers Thumbnails."]
+      "target": {
+        "role": "menu",
+        "semantic_name": "View"
+      },
+      "expected_result": [
+        "The View menu is visible and offers Thumbnails."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "show_destination_thumbnails",
       "objective": "Ask the user to choose Thumbnails in the duplicate destination.",
-      "target": {"role": "menu_item", "semantic_name": "Thumbnails"},
-      "expected_result": ["Page thumbnails appear in the duplicate destination's sidebar."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "Thumbnails"
+      },
+      "expected_result": [
+        "Page thumbnails appear in the duplicate destination's sidebar."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "show_source_thumbnails",
       "objective": "For each source working copy, ask the user to choose View > Thumbnails.",
-      "target": {"role": "menu_item", "semantic_name": "View > Thumbnails in the source working copy"},
-      "expected_result": ["The source working copy's page thumbnails are visible."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "View > Thumbnails in the source working copy"
+      },
+      "expected_result": [
+        "The source working copy's page thumbnails are visible."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "combine_pages",
       "objective": "Ask the user to drag the required thumbnails from the source working copies into the duplicate destination's sidebar at the intended position. Repeat for the requested pages.",
-      "target": {"role": "sidebar", "semantic_name": "The intended insertion position among the destination page thumbnails"},
-      "expected_result": ["The requested pages appear in the duplicate destination with the expected total page count and order."]
+      "target": {
+        "role": "sidebar",
+        "semantic_name": "The intended insertion position among the destination page thumbnails"
+      },
+      "expected_result": [
+        "The requested pages appear in the duplicate destination with the expected total page count and order."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "save_combined_copy",
       "objective": "Ask the user to choose File > Save for the duplicate, using the agreed output name and location if a save dialog appears. Stop if an overwrite is proposed.",
-      "target": {"role": "menu_item", "semantic_name": "File > Save"},
-      "expected_result": ["The combined copy has the agreed file name and location, and no save dialog remains open."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "File > Save"
+      },
+      "expected_result": [
+        "The combined copy has the agreed file name and location, and no save dialog remains open."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     },
     {
       "id": "verify_originals",
       "objective": "Ask the user to inspect the original PDFs and compare their page counts and page order with the starting state.",
-      "target": {"role": "document", "semantic_name": "The original PDFs"},
-      "expected_result": ["Each original retains its initial page count and page order."]
+      "target": {
+        "role": "document",
+        "semantic_name": "The original PDFs"
+      },
+      "expected_result": [
+        "Each original retains its initial page count and page order."
+      ],
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
+      "verification": "visual"
     }
   ],
   "success_criteria": [
@@ -103,7 +166,10 @@
   ],
   "validation": {
     "status": "unverified",
-    "documented_versions": ["Preview in macOS Sequoia 15", "Preview in macOS Tahoe 26"],
+    "documented_versions": [
+      "Preview in macOS Sequoia 15",
+      "Preview in macOS Tahoe 26"
+    ],
     "tested_versions": [],
     "notes": "Official version-specific documentation reviewed on 2026-10-10. No hands-on Preview testing was performed. The guide URL's 11.0 segment is not a measured application version."
   },
@@ -128,5 +194,29 @@
       "url": "https://support.apple.com/en-sg/guide/preview/prvw0b1e8d9e/11.0/mac/26",
       "research_date": "2026-10-10"
     }
-  ]
+  ],
+  "surface": "desktop",
+  "difficulty": "foundation",
+  "concepts": [
+    {
+      "name": "Document copies",
+      "explanation": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "task_details",
+      "question": "Which source copies, page order, and output filename should we use?"
+    }
+  ],
+  "requirements": [
+    "An editable local document or writable folder is available; use synthetic practice files."
+  ],
+  "match_groups": [
+    [
+      "pdf",
+      "pdfs"
+    ]
+  ],
+  "related_skills": []
 }

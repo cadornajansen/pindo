@@ -1,0 +1,271 @@
+{
+  "schema_version": 2,
+  "applications": [
+    {
+      "id": "microsoft.powerpoint",
+      "name": "Microsoft PowerPoint",
+      "aliases": [
+        "PowerPoint",
+        "Microsoft PowerPoint"
+      ],
+      "bundle_ids": [
+        "com.microsoft.Powerpoint"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "slide",
+        "layout",
+        "master",
+        "notes"
+      ]
+    },
+    {
+      "id": "microsoft.excel",
+      "name": "Microsoft Excel",
+      "aliases": [
+        "Excel",
+        "Microsoft Excel"
+      ],
+      "bundle_ids": [
+        "com.microsoft.Excel"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "cell",
+        "range",
+        "worksheet",
+        "workbook"
+      ]
+    },
+    {
+      "id": "microsoft.word",
+      "name": "Microsoft Word",
+      "aliases": [
+        "Word",
+        "Microsoft Word"
+      ],
+      "bundle_ids": [
+        "com.microsoft.Word"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "paragraph",
+        "style",
+        "section",
+        "document"
+      ]
+    },
+    {
+      "id": "bytedance.capcut",
+      "name": "CapCut",
+      "aliases": [
+        "CapCut"
+      ],
+      "bundle_ids": [],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "clip",
+        "timeline",
+        "keyframe",
+        "export"
+      ]
+    },
+    {
+      "id": "figma.web",
+      "name": "Figma web",
+      "aliases": [
+        "Figma"
+      ],
+      "bundle_ids": [],
+      "domains": [
+        "figma.com"
+      ],
+      "surface": "browser",
+      "terminology": [
+        "frame",
+        "component",
+        "instance",
+        "variant"
+      ]
+    },
+    {
+      "id": "canva.web",
+      "name": "Canva web",
+      "aliases": [
+        "Canva"
+      ],
+      "bundle_ids": [],
+      "domains": [
+        "canva.com"
+      ],
+      "surface": "browser",
+      "terminology": [
+        "page",
+        "element",
+        "frame",
+        "download"
+      ]
+    },
+    {
+      "id": "imageline.flstudio",
+      "name": "FL Studio",
+      "aliases": [
+        "FL Studio"
+      ],
+      "bundle_ids": [],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "Channel Rack",
+        "Piano Roll",
+        "Playlist",
+        "Mixer"
+      ]
+    },
+    {
+      "id": "adobe.photoshop",
+      "name": "Adobe Photoshop",
+      "aliases": [
+        "Adobe Photoshop",
+        "Photoshop"
+      ],
+      "bundle_ids": [],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "layer",
+        "mask",
+        "Smart Object",
+        "selection"
+      ]
+    },
+    {
+      "id": "adobe.illustrator",
+      "name": "Adobe Illustrator",
+      "aliases": [
+        "Adobe Illustrator",
+        "Illustrator"
+      ],
+      "bundle_ids": [],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "path",
+        "anchor",
+        "artboard",
+        "appearance"
+      ]
+    },
+    {
+      "id": "adobe.premiere",
+      "name": "Adobe Premiere Pro",
+      "aliases": [
+        "Adobe Premiere Pro",
+        "Premiere Pro",
+        "Adobe Premiere"
+      ],
+      "bundle_ids": [],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "sequence",
+        "source",
+        "track",
+        "Program Monitor"
+      ]
+    },
+    {
+      "id": "adobe.aftereffects",
+      "name": "Adobe After Effects",
+      "aliases": [
+        "Adobe After Effects",
+        "After Effects"
+      ],
+      "bundle_ids": [],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "composition",
+        "layer",
+        "keyframe",
+        "precomposition"
+      ]
+    },
+    {
+      "id": "apple.finder",
+      "name": "Finder",
+      "aliases": [
+        "Finder"
+      ],
+      "bundle_ids": [
+        "com.apple.finder"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "folder",
+        "tag",
+        "sidebar",
+        "path"
+      ]
+    },
+    {
+      "id": "apple.preview",
+      "name": "Preview",
+      "aliases": [
+        "Preview"
+      ],
+      "bundle_ids": [
+        "com.apple.Preview"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "thumbnail",
+        "markup",
+        "PDF",
+        "export"
+      ]
+    },
+    {
+      "id": "apple.safari",
+      "name": "Safari",
+      "aliases": [
+        "Safari"
+      ],
+      "bundle_ids": [
+        "com.apple.Safari"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "tab",
+        "download",
+        "address field",
+        "website"
+      ]
+    },
+    {
+      "id": "apple.terminal",
+      "name": "Terminal",
+      "aliases": [
+        "Terminal"
+      ],
+      "bundle_ids": [
+        "com.apple.Terminal"
+      ],
+      "domains": [],
+      "surface": "desktop",
+      "terminology": [
+        "working directory",
+        "path",
+        "shell",
+        "process"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "finder.create_folder",
   "application_id": "apple.finder",
   "application": "Finder",
@@ -19,20 +19,41 @@
     {
       "id": "open_file",
       "objective": "Ask the user to open Finder's File menu.",
-      "target": {"role": "menu", "semantic_name": "File"},
-      "expected_result": ["Finder's File menu is visible."]
+      "target": {
+        "role": "menu",
+        "semantic_name": "File"
+      },
+      "expected_result": [
+        "Finder's File menu is visible."
+      ],
+      "why": "The selected location determines where the new folder is created; the name alone does not establish its path.",
+      "verification": "visual"
     },
     {
       "id": "create_folder",
       "objective": "Ask the user to choose New Folder.",
-      "target": {"role": "menu_item", "semantic_name": "New Folder"},
-      "expected_result": ["A new folder appears in the intended parent location with its name ready to edit."]
+      "target": {
+        "role": "menu_item",
+        "semantic_name": "New Folder"
+      },
+      "expected_result": [
+        "A new folder appears in the intended parent location with its name ready to edit."
+      ],
+      "why": "The selected location determines where the new folder is created; the name alone does not establish its path.",
+      "verification": "visual"
     },
     {
       "id": "name_folder",
       "objective": "Ask the user to type the requested folder name and press Return.",
-      "target": {"role": "text_field", "semantic_name": "The new folder's name"},
-      "expected_result": ["The folder shows the requested name and name editing has ended."]
+      "target": {
+        "role": "text_field",
+        "semantic_name": "The new folder's name"
+      },
+      "expected_result": [
+        "The folder shows the requested name and name editing has ended."
+      ],
+      "why": "The selected location determines where the new folder is created; the name alone does not establish its path.",
+      "verification": "visual"
     }
   ],
   "success_criteria": [
@@ -65,7 +86,9 @@
   ],
   "validation": {
     "status": "unverified",
-    "documented_versions": ["Finder in macOS Tahoe 26"],
+    "documented_versions": [
+      "Finder in macOS Tahoe 26"
+    ],
     "tested_versions": [],
     "notes": "Version-specific Apple documentation reviewed on 2026-10-10. No hands-on Finder testing was performed. The app targets macOS 15+, but this review does not establish coverage of every supported OS."
   },
@@ -80,5 +103,28 @@
       "url": "https://support.apple.com/en-ca/guide/mac-help/mchlp1144/26/mac/26",
       "research_date": "2026-10-10"
     }
-  ]
+  ],
+  "surface": "desktop",
+  "difficulty": "foundation",
+  "concepts": [
+    {
+      "name": "Parent directory",
+      "explanation": "The selected location determines where the new folder is created; the name alone does not establish its path."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "task_details",
+      "question": "Which parent location and new folder name should we use?"
+    }
+  ],
+  "requirements": [
+    "An editable local document or writable folder is available; use synthetic practice files."
+  ],
+  "match_groups": [
+    [
+      "folder"
+    ]
+  ],
+  "related_skills": []
 }

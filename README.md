@@ -10,9 +10,10 @@ This is the **bootstrap milestone** for AppBuildersPH Hackathon 2026. The organi
 - Text input, Submit/Enter, a clearly labeled mock response, and native `Ctrl + Space` registration with collision reporting and cleanup.
 - Shared tutoring contracts and validated, typed utilities: `file.inspect` and `file.convert_image` are implemented and tested as library classes, with exact-path approvals.
 - `video.inspect_url` and `video.download` are implemented as library classes using local yt-dlp, with a fresh preview approval for each bounded download. The user-approved sample passed a live Linux download and FFmpeg merge; these online utilities are not registered in the desktop/model.
+- `file.compress_image` is implemented and tested for **PNG to PNG** using two fixed resize presets. It shows actual candidate dimensions/bytes and warnings, then requires fresh approval before saving a smaller copy. Already-small files return `NoReduction` without writing. See [compression setup and handoff](docs/IMPLEMENTATION.md#png-compression).
 - Central Ollama settings and an asynchronous availability-check boundary. Ollama is optional for launching this scaffold.
 
-**Not implemented:** model inference, Windows UI Automation capture, highlighting, real tutoring, voice, desktop/model tool registration, `file.convert_document`, or `file.convert_media`. No offline tutoring, privacy guarantee, model accuracy, or performance benchmark is claimed. An Ollama availability result only confirms that its API responded.
+**Not implemented:** model inference, Windows UI Automation capture, highlighting, real tutoring, voice, desktop/model tool registration, `file.convert_document`, `file.convert_media`, JPEG/WebP compression, `file.compress_media`, or `pdf.optimize`. No offline tutoring, privacy guarantee, model accuracy, or performance benchmark is claimed. An Ollama availability result only confirms that its API responded.
 
 ## Requirements and setup
 
@@ -21,6 +22,7 @@ This is the **bootstrap milestone** for AppBuildersPH Hackathon 2026. The organi
 - Git; JetBrains Rider with .NET 10 support, or the .NET CLI.
 - Ollama is needed only for the next inference milestone; it was not installed on the bootstrap machine and no model was downloaded.
 - Optional image utilities require a separately installed local ImageMagick with PNG/JPEG/WebP codecs. The trusted caller supplies its absolute executable path to `ImageMagickCodec`; no binary is bundled or downloaded automatically. Linux tests used ImageMagick 6.9.12-98 Q16. Windows installation, codec policy, process cleanup, and the presentation application still need device validation. See [utility setup and limits](docs/IMPLEMENTATION.md#file-inspection-and-image-conversion).
+- PNG compression reuses that ImageMagick configuration and needs only its PNG codec. The host displays a `CompressImageTool.PreviewAsync` result and obtains explicit approval before constructing `ImageCompressionApproval`; model arguments cannot grant consent. Keep one active preview and dispose it when abandoned. Windows codec/process behavior and desktop/model integration remain unverified.
 - Optional video utilities require separately installed **yt-dlp 2026.08.19**, configured by absolute trusted executable path. **FFmpeg 9.0.1** is optional for combined files and required for merging separate HTTPS audio/video streams. Versions are checked locally on each operation; the app does not install or update them. The Windows `yt-dlp.exe` distribution has different bundled license obligations from upstream source; neither native binary is bundled here. See [video setup, consent, tests and limitations](docs/IMPLEMENTATION.md#video-inspection-and-download).
 
 Public repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
@@ -63,7 +65,7 @@ The interactive smoke check ran on Windows 11 build `26200` at 125% display scal
 ```text
 src/LocalTutor.Desktop/   WPF window, native hotkey, mock tutor, Ollama boundary
 src/LocalTutor.Core/      UI snapshots, tutor DTOs, service and tool contracts
-src/LocalTutor.Tools/     Validated utility base class, file/image utilities, and video utilities
+src/LocalTutor.Tools/     Validated utility base class, file/image utilities, PNG compression, and video utilities
 tests/LocalTutor.Tests/   Lightweight tests for contracts and pure logic
 docs/                    Product, architecture, compliance, team ownership
 LocalTutor.slnx           Solution containing the four projects
@@ -82,6 +84,8 @@ The selected utility slice prepares one local water-cycle illustration for a sli
 Verification on Linux (.NET SDK 10.0.112): 24 focused utility cases and all 27 repository tests pass, including all nine PNG/JPEG/WebP conversion pairs with actual pixel decoding. This does not establish Windows desktop or native converter compatibility. Documents and media conversion remain planned.
 
 The subsequent video slice passed 87 focused offline cases (including the optional installed-binary option check), all 114 repository offline cases, and a separately user-approved end-to-end sample test. Downloads are limited to one new MP4/WebM file, ten minutes, and 100 MiB, with source/path validation, cancellation and partial-file cleanup. Only selected HTTPS streams are supported; HLS, credentials, DRM, playlists and bulk downloads are unavailable. Windows native execution and desktop/model integration remain unverified.
+
+The compression slice passed **26 focused cases** on Linux with actual PNG decoding, including both resize presets, already-small/corrupt files, missing dependencies, cancellation, output conflicts, source changes and approval reuse/expiry. The full offline repository run passed **139 cases**, with two video checks skipped (live sample and optional pinned-binary parser). `Slides1600` fits a 1600 × 900 box; `Share800` fits 800 × 600. Both retain aspect ratio and avoid enlargement. Resizing can remove detail; output uses 8-bit sRGB and strips metadata, so no lossless claim is made. The original stays in place. Run `dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore --filter FullyQualifiedName~Compression` after configuring the installed codec.
 
 ## Team workflow
 

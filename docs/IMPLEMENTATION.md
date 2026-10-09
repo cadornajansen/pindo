@@ -8,7 +8,7 @@ Product boundaries and acceptance criteria live in [product scope](PRODUCT_SCOPE
 |---|---|---|
 | `LocalTutor.Desktop` | WPF command palette, native shortcut, foreground context, mock tutor, Ollama boundary | Core |
 | `LocalTutor.Core` | Serializable tutoring models and shared contracts | No application projects |
-| `LocalTutor.Tools` | Typed utility base class, approved-file inspection/image conversion, video inspection/download | Core |
+| `LocalTutor.Tools` | Typed utility base class, approved-file inspection/image conversion, PNG compression, video inspection/download | Core |
 | `LocalTutor.Tests` | Focused tests for shared contracts and pure tool logic | Core, Tools |
 
 Desktop targets `net10.0-windows`; Core, Tools, and Tests target `net10.0` because their shared logic does not require Windows. Add a Desktop → Tools reference only when the desktop needs a real utility. No database, web server, or additional framework is required.
@@ -215,6 +215,74 @@ Manual lawful-sample check, **only after specific user approval of this test and
 Lead handoff: allowlist the exact IDs, supply trusted native paths and host-owned user approval, display the preview and source URL before dispatch, propagate cancellation/progress, handle failures/cleanup warnings, and qualify the installed Windows binaries and playback before advertising the tools in the UI. No Core contract change is needed for this library slice. The user-confirmed author/committer is `KampferArchives <eleneusgyen@gmail.com>`; `gh auth status` confirmed that GitHub account is active. Commit only this prompt's source/tests and existing documentation; exclude the pre-existing Desktop project edit, native binaries, temporary media and the separate planning inventory. No push/publication is authorized.
 
 Dependency references: [yt-dlp release](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.08.19), [yt-dlp licensing and installation](https://github.com/yt-dlp/yt-dlp#licensing), [bundled dependency notices](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/THIRD_PARTY_LICENSES.txt), [FFmpeg legal/build conditions](https://ffmpeg.org/legal.html). Upstream yt-dlp source is Unlicense; official PyInstaller executable distributions contain GPLv3+ code. FFmpeg's license depends on its build; the tested build enables GPL and version 3. No native redistribution is included here.
+
+## PNG compression
+
+Selected demo slice: **`file.compress_image` / `CompressImageTool`**, **PNG to PNG only**. The exact ID matches `Tool_Calling_Prompts/TOOL_FUNCTIONS_INDEX.txt`. It derives from `LocalTool<CompressImageInput, CompressedImage>` and reuses the existing `FileAccessScope`, `ImageContent` and `ImageMagickCodec` without changing those files, Core, Desktop or project configuration. The classroom illustration workflow is the basis for choosing this narrow slice. No desktop/model registry or end-to-end teaching integration is claimed.
+
+### Arguments, preview, approval and result
+
+Namespace: `LocalTutor.Tools.Compression`. Required model arguments are `InputPath`, `OutputPath` (PNG filenames) and `Preset` (`Slides1600` or `Share800`). Unknown JSON members, missing arguments, numeric/unknown presets, traversal and invalid paths are rejected. There are no model-provided quality values, resize dimensions, executable names, codecs, native switches or approval flags. The JSON Schema definitions `Arguments` and `Result` are in [`compress_image.schemas.json`](../src/LocalTutor.Tools/Compression/compress_image.schemas.json); use the default C# property names when integrating them. Schema validation supplements the C# content, path and permission checks.
+
+| Preset | Fixed behavior |
+|---|---|
+| `Slides1600` | PNG, preserve transparency, fit within 1600 × 900, preserve aspect ratio, never enlarge |
+| `Share800` | PNG, preserve transparency, fit within 800 × 600, preserve aspect ratio, never enlarge |
+
+Both use the existing encoder's 8-bit sRGB conversion, orientation handling and metadata removal. PNG accepts no lossy quality number. Resizing and bit-depth/color changes can remove detail; embedded ICC profiles and non-RGB/gray input are rejected. A PNG output does **not** establish lossless optimization. The preview warns about small text/detail and the teacher must review the saved image before sharing.
+
+`PreviewAsync` requires host-owned exact path approval and a trusted codec. It reads and decodes the PNG, generates a bounded candidate, decodes the candidate, and returns an `ImageCompressionPreview` containing canonical input/output paths, expiry and `ImageCompressionSummary`: `Preset`, `OriginalBytes`, `NewBytes`, `OriginalWidth`, `OriginalHeight`, `NewWidth`, `NewHeight`, `HasAlphaChannel`, `IsSmaller`, and `Warnings`. Candidate byte sizes are actual encoded sizes. No destination/sibling file is created during preview; the codec may spool input into its existing isolated temporary storage. Neither preview creation nor model arguments authorize saving.
+
+After the user sees the paths, preset, dimensions, byte sizes and warnings and explicitly approves that effect, the trusted host constructs `ImageCompressionApproval` and dispatches `ExecuteAsync` with the same typed input. Approval is bound to the exact input record and source SHA-256, expires after five minutes, and is consumed once by the preview even if another approval wrapper is created. Source changes, expired/disposed/reused previews and mismatched inputs require a new preview. Pre-execution cancellation and validation errors follow the base contract before consent is consumed. Dispose abandoned previews; keep at most one active preview per workflow. Preview/approval objects are host state and must never be deserialized from model output.
+
+The result is `ToolResult<CompressedImage>` with `OutputPath`, `Status` and `Summary`. `Compressed` means the previewed, decoded bytes were saved to the returned canonical new path and `NewBytes < OriginalBytes`. `NoReduction` is a successful comparison with a null output path, `IsSmaller=false`, an explanation, and **no file written**. Do not display it as a successful compression or sharing action. Failures return `Success=false`, null value and generic error codes such as `UnsupportedFormat`, `FormatMismatch`, `UnsupportedColor`, `MissingDependency`, `CodecFailed`, `ResourceLimit`, `TimedOut`, `SourceChanged`, approval errors and output/path errors. Private paths and native diagnostic text are not included in errors. User cancellation throws `OperationCanceledException`, matching the existing contract; map it to a visible canceled status.
+
+### Limits, dependency setup and consent handoff
+
+The existing codec limits apply: input at most **20 MiB**, candidate at most **32 MiB**, each input dimension at most **8192**, at most **4 million decoded pixels**; native calls have a **15-second deadline each**, one thread, 128 MiB pixel-cache limit and no mapped/disk pixel cache. A preview uses three native calls (up to 45 seconds plus file I/O/process cleanup). Native overhead and transient buffers are additional; these are not hard OS memory/disk quotas. One smaller candidate is retained in memory per live preview until consumption/disposal; byte references are cleared rather than securely erased. Saving rechecks the source digest and approved paths before publishing, writes a temporary sibling, and renames with overwrite disabled. Failure/cancellation removes that sibling; cleanup failure is reported as `CleanupFailed` or `CanceledWithCleanupWarning`. The rename is the commit point; cancellation after it cannot undo the completed copy. Progress reports bounded stage names/percentages with no paths or image content.
+
+The original is never replaced. Existing-file overwrite, output-directory creation and batch operations are unavailable. Path protections reject unapproved exact paths, traversal, network/device/alternate-stream paths, protected roots, symlinks and reparse points. Checks use the existing ordinary-user filesystem boundary; they are not an OS sandbox or protection against a concurrently hostile directory replacement. Use a trusted local workspace. Windows junctions/ACLs, process-tree behavior, special Unix files/network mounts and crash recovery still require device/integration hardening.
+
+Dependency: separately installed **ImageMagick 6.9.12-98 Q16 x64**, reused with **libpng 1.6.43** and native **zlib 1.3** for PNG decoding/encoding. Installed license records and package versions were inspected locally; the existing shared planning inventory was extended without duplicating entries. No package download, new NuGet package or native redistribution is included. Windows callers supply the absolute trusted `magick.exe`/ImageMagick `convert.exe` path to `ImageMagickCodec` (never Windows' unrelated conversion executable). ImageMagick 7 and Windows codecs/policy/binary maintenance/licensing remain unverified. Missing/unstartable codec returns a failure; other compression formats and dependencies are not simulated.
+
+```csharp
+// Host-side code after the user selects the workspace/input and proposed new name.
+var scope = new FileAccessScope(workspace,
+    approvedInputs: ["water-cycle-slides.png"],
+    approvedOutputs: ["water-cycle-shared.png"]);
+var codec = new ImageMagickCodec(trustedInstalledImageMagickPath);
+var input = new CompressImageInput("water-cycle-slides.png", "water-cycle-shared.png",
+    ImageCompressionPreset.Share800);
+var prepared = await CompressImageTool.PreviewAsync(scope, codec, input, cancellationToken);
+if (!prepared.Success) { /* Display prepared.Error and return control. */ return; }
+using var preview = prepared.Value!;
+// Display preview.InputPath, OutputPath, Summary and warnings, then await explicit user approval.
+// Only after approval:
+var saved = await new CompressImageTool(new ImageCompressionApproval(preview), progress)
+    .ExecuteAsync(input, cancellationToken);
+// Display saved.Error or the actual saved.Value.Status, OutputPath and Summary.
+```
+
+Lead handoff: allowlist `file.compress_image`, bind the supplied schemas, keep codec/scope/approval in trusted host state, display the preview, propagate progress/cancellation and dispose abandoned previews. The teacher reviews the new file and shares it manually. Qualify the actual Windows dependency, readability and classroom workflow before advertising availability in the assistant. No Core contract change is required for this library slice.
+
+### Verification and planned compression functions
+
+On Linux with .NET SDK **10.0.112**, **26 focused compression cases passed** with the installed real codec. Coverage includes both presets and raw RGBA output decoding, alpha, aspect ratio, no enlargement, actual bytes/source preservation, metadata stripping, already-small files, corruption/truncation/signature mismatch/animation/ICC profiles, resource limits, missing dependency, strict arguments, exact path approval/traversal, conflicts before and during save, symlinks, source changes, approval mismatch/expiry/reuse/disposal, preflight/encoding/save cancellation, native timeout/process exit and partial cleanup. **The full offline repository run passed 139 cases, with two video checks skipped** (the live sample and optional pinned-binary parser check were disabled/unconfigured). The compression test collection runs separately because an existing image test compares all codec scratch directories under the OS temp directory; concurrent codec tests would invalidate that check. POSIX worker/link fixtures require separate Windows checks. Tools built with `--no-restore -warnaserror`: zero warnings/errors. No network fixture, Windows/WPF run, model dispatch or PowerPoint acceptance was tested for this prompt.
+
+```powershell
+$env:LOCAL_TUTOR_IMAGEMAGICK = 'C:\path\to\installed\ImageMagick\magick.exe'
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore --filter FullyQualifiedName~Compression
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore
+dotnet build src/LocalTutor.Tools/LocalTutor.Tools.csproj --no-restore -warnaserror
+```
+
+| Exact ID / format | Status and coordination requirement |
+|---|---|
+| `file.compress_image` — JPEG/WebP | Planned; not accepted by the PNG implementation. Requires selected allowlisted quality/resize presets, codec/metadata/alpha/fidelity tests and inventory updates before use. |
+| `file.compress_media` | Planned; no executable class or advertised availability. Select one real audio/video demo format first; fixed FFmpeg presets, verified duration/media type/readability, unsupported-codec results, cancellation and resource limits need tests. Existing download stream-copy qualification does not verify encoding. |
+| `pdf.optimize` | Planned; no executable class or adopted PDF optimizer. Select a free local utility/library and verify page count/readability, encryption/features/image-quality tradeoffs, cancellation/conflicts and size outcomes. No lossless claim without verification. |
+
+Changed files are confined to new `src/LocalTutor.Tools/Compression/` and `tests/LocalTutor.Tests/Compression/` files and these existing shared docs/root README. The dependency inventory stays in the separate planning directory and is excluded from Git. Commit author and committer use the confirmed `KampferArchives <eleneusgyen@gmail.com>` identity. Commit only this completed prompt on local `tool_calling_functions`; the pre-existing Desktop project edit is excluded. No push, publication, deployment or external transfer is authorized.
 
 ## Ollama boundary
 

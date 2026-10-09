@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "file.compress_image contracts (PNG demo slice)",
+  "$defs": {
+    "Arguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["InputPath", "OutputPath", "Preset"],
+      "properties": {
+        "InputPath": { "type": "string", "minLength": 1, "maxLength": 1024, "pattern": "\\.[pP][nN][gG]$" },
+        "OutputPath": { "type": "string", "minLength": 1, "maxLength": 1024, "pattern": "\\.[pP][nN][gG]$" },
+        "Preset": { "enum": ["Slides1600", "Share800"] }
+      }
+    },
+    "Summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Preset", "OriginalBytes", "NewBytes", "OriginalWidth", "OriginalHeight", "NewWidth", "NewHeight", "HasAlphaChannel", "IsSmaller", "Warnings"],
+      "properties": {
+        "Preset": { "enum": ["Slides1600", "Share800"] },
+        "OriginalBytes": { "type": "integer", "minimum": 1, "maximum": 20971520 },
+        "NewBytes": { "type": "integer", "minimum": 1, "maximum": 33554432 },
+        "OriginalWidth": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "OriginalHeight": { "type": "integer", "minimum": 1, "maximum": 8192 },
+        "NewWidth": { "type": "integer", "minimum": 1, "maximum": 1600 },
+        "NewHeight": { "type": "integer", "minimum": 1, "maximum": 900 },
+        "HasAlphaChannel": { "type": "boolean" },
+        "IsSmaller": { "type": "boolean" },
+        "Warnings": { "type": "array", "minItems": 2, "maxItems": 3, "items": { "type": "string", "minLength": 1 } }
+      },
+      "allOf": [{
+        "if": { "properties": { "Preset": { "const": "Share800" } } },
+        "then": { "properties": { "NewWidth": { "maximum": 800 }, "NewHeight": { "maximum": 600 } } }
+      }]
+    },
+    "Value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["OutputPath", "Status", "Summary"],
+      "properties": {
+        "OutputPath": { "type": ["string", "null"] },
+        "Status": { "enum": ["Compressed", "NoReduction"] },
+        "Summary": { "$ref": "#/$defs/Summary" }
+      },
+      "oneOf": [
+        { "properties": { "Status": { "const": "Compressed" }, "OutputPath": { "type": "string", "minLength": 1 }, "Summary": { "properties": { "IsSmaller": { "const": true } } } } },
+        { "properties": { "Status": { "const": "NoReduction" }, "OutputPath": { "type": "null" }, "Summary": { "properties": { "IsSmaller": { "const": false } } } } }
+      ]
+    },
+    "Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Success", "Value", "Error"],
+      "properties": {
+        "Success": { "type": "boolean" },
+        "Value": { "oneOf": [{ "$ref": "#/$defs/Value" }, { "type": "null" }] },
+        "Error": { "type": ["string", "null"] }
+      },
+      "oneOf": [
+        { "properties": { "Success": { "const": true }, "Value": { "$ref": "#/$defs/Value" }, "Error": { "type": "null" } } },
+        { "properties": { "Success": { "const": false }, "Value": { "type": "null" }, "Error": { "type": "string", "minLength": 1 } } }
+      ]
+    }
+  },
+  "$ref": "#/$defs/Arguments"
+}

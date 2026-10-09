@@ -76,8 +76,10 @@ internal sealed class BuddySurface : Window
             (int)Monitor.Bounds.Width, (int)Monitor.Bounds.Height, 0x0010 | 0x0040);
     }
 
-    public void Render(GuidancePresentation presentation, Point anchor, string state)
+    public void Render(GuidancePresentation presentation, Point anchor, string state, bool showBuddy = true)
     {
+        _buddy.Visibility = showBuddy ? Visibility.Visible : Visibility.Collapsed;
+        _bubble.Visibility = showBuddy ? Visibility.Visible : Visibility.Collapsed;
         if (!IsVisible) Show();
         // WPF's initial Show can apply its logical Width/Height after SourceInitialized.
         // Reapply the monitor's physical bounds at the final native rendering boundary.

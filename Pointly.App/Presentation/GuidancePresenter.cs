@@ -8,13 +8,18 @@ public sealed class GuidancePresenter : IDisposable
     private readonly PresentationLifetime _lifetime = new();
     private readonly Action<string> _log;
     private BuddySurface? _surface;
+    private ChatWindow? _chat;
     private GuidancePresentation? _current;
     private Point _anchor;
     private string _state = "Microphone off";
     private CancellationTokenSource? _narration;
     private long _narratedIdentity;
     private int _captureDepth;
+    private bool _microphoneOn;
     public Func<string, CancellationToken, Task>? Narrate { get; set; }
+    public event Action<string>? QuestionSubmitted;
+    public event Action? MicrophoneRequested;
+    public event Action? DismissRequested;
     public bool IsVisible => _lifetime.Visible;
 
     public GuidancePresenter(Action<string> log) => _log = log;
@@ -23,8 +28,9 @@ public sealed class GuidancePresenter : IDisposable
     {
         var timer = Stopwatch.StartNew();
         _anchor = DesktopGeometry.Cursor();
-        Show(new(_lifetime.Replace(), "Hi, I’m Pindo. How can I help?", null));
-        _log($"SummonToBuddyMs={timer.ElapsedMilliseconds}");
+        Show(new(_lifetime.Replace(), "", null));
+        _chat?.Present(DesktopGeometry.At(_anchor), focusInput: true);
+        _log($"SummonToComposerMs={timer.ElapsedMilliseconds}");
     }
 
     public void ShowTarget(Rect target, bool point, string instruction, AnnotationStyle? style = null)
@@ -32,7 +38,7 @@ public sealed class GuidancePresenter : IDisposable
         var timer = Stopwatch.StartNew();
         CancelNarration();
         _anchor = new(target.X + target.Width / 2, target.Y + target.Height / 2);
-        Show(new(_lifetime.Replace(), instruction, target, point, style ?? (point ? AnnotationStyle.Ring : AnnotationStyle.Pointer)));
+        Show(new(_lifetime.Replace(), instruction, target, point, style ?? (point ? AnnotationStyle.Ring : AnnotationStyle.Rectangle)));
         _log($"TargetReadyToGuidanceVisibleMs={timer.ElapsedMilliseconds}");
     }
 
@@ -49,21 +55,36 @@ public sealed class GuidancePresenter : IDisposable
         _current = presentation;
         if (_captureDepth > 0) return;
         MonitorGeometry monitor = DesktopGeometry.At(_anchor);
+        if (_chat is null)
+        {
+            _chat = new ChatWindow();
+            _chat.QuestionSubmitted += question => QuestionSubmitted?.Invoke(question);
+            _chat.MicrophoneRequested += () => MicrophoneRequested?.Invoke();
+            _chat.DismissRequested += () => DismissRequested?.Invoke();
+        }
+        _chat.SetInstruction(presentation.Instruction);
+        _chat.SetState(_state);
+        _chat.SetMicrophoneState(_microphoneOn);
+        _chat.Present(monitor);
         if (_surface is null || _surface.Monitor != monitor)
         {
             _surface?.StopMotion(); _surface?.Close();
             _surface = new BuddySurface(monitor);
         }
         _current = presentation;
-        _surface.Render(presentation, _anchor, _state);
+        if (presentation.Target is not null) _surface.Render(presentation, _anchor, _state, showBuddy: false);
+        else _surface.Hide();
     }
 
-    public void SetState(string state) { _state = state; _surface?.SetState(state); }
-    public void ShowPartial(string partial) => _surface?.SetPartial(partial);
+    public void SetState(string state) { _state = state; _chat?.SetState(state); }
+    public void ShowPartial(string partial) => _chat?.SetPartial(partial);
+    public void SetMicrophoneState(bool isOn) { _microphoneOn = isOn; _chat?.SetMicrophoneState(isOn); }
+    public void HideInput() => _chat?.Hide();
     public IDisposable HideForCapture()
     {
         _captureDepth++;
         _surface?.Hide();
+        _chat?.Hide();
         return new CaptureLease(this);
     }
 
@@ -100,25 +121,15 @@ public sealed class GuidancePresenter : IDisposable
     {
         _lifetime.Dismiss(); CancelNarration(); _current = null;
         _surface?.StopMotion(); _surface?.Hide();
+        _chat?.Hide();
     }
 
     public void Preview()
     {
 #if DEBUG
         Summon();
-        _ = PreviewAsync(_lifetime.Identity);
+        SetState("Preview mode");
 #endif
     }
-#if DEBUG
-    private async Task PreviewAsync(long identity)
-    {
-        foreach (AnnotationStyle style in Enum.GetValues<AnnotationStyle>())
-        {
-            if (!_lifetime.IsCurrent(identity)) return;
-            Show(new(identity, $"Preview: {style}", new Rect(_anchor.X, _anchor.Y, 100, 36), Style: style));
-            await Task.Delay(1600);
-        }
-    }
-#endif
-    public void Dispose() { Dismiss(); _surface?.Close(); _surface = null; }
+    public void Dispose() { Dismiss(); _surface?.Close(); _surface = null; _chat?.Exit(); _chat = null; }
 }

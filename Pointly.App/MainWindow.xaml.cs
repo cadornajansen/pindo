@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
 using System.Windows;
 using Amazon.Runtime;
 using Pointly.App.Automation;
@@ -46,11 +47,15 @@ public partial class MainWindow : Window
     private GlobalHotkey? _interruptHotkey;
     private bool _exitRequested;
     private bool _microphoneMuted;
+    private ForegroundWindowInfo? _composerTarget;
 
     public MainWindow()
     {
         InitializeComponent();
         _presenter = new GuidancePresenter(Log);
+        _presenter.QuestionSubmitted += OnTypedQuestion;
+        _presenter.MicrophoneRequested += OnMicrophoneRequested;
+        _presenter.DismissRequested += () => DismissSession("EscapePressed");
         _targetWatcher = new TargetContextWatcher(Dispatcher, reason =>
         {
             ReplaceGuidance(reason);
@@ -73,6 +78,7 @@ public partial class MainWindow : Window
         _voice.ActivityChanged += activity => Dispatcher.BeginInvoke(() =>
         {
             if (_closed || !ReferenceEquals(activity, _voice.Activity)) return;
+            _presenter.SetMicrophoneState(activity.MicrophoneOn);
             _presenter.SetState(activity.MicrophoneOn ? "● Microphone on · Listening" :
                 activity.Speaking ? "Speaking · Microphone off" : activity.Processing ? "Thinking · Microphone off" :
                 activity.Muted ? "Microphone muted" : "Microphone off");
@@ -111,7 +117,7 @@ public partial class MainWindow : Window
             _interruptHotkey.Pressed += OnInterruptPressed;
             _interruptHotkey.Register();
             StatusText.Text = "Hotkey registered: Ctrl+Space";
-            HotkeyHint.Text = "Ctrl+Space: summon/dismiss. Ctrl+Alt+Space: interrupt and listen.";
+            HotkeyHint.Text = "Ctrl+Space: open/close chat. Enter: send. Escape: close. Microphone: ask by voice.";
         }
         catch (Exception ex)
         {
@@ -120,7 +126,116 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void OnHotkeyPressed(object? sender, EventArgs e)
+    private void OnHotkeyPressed(object? sender, EventArgs e)
+    {
+#if DEBUG
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("POINTLY_DEBUG_WALKTHROUGH")))
+        {
+            OnLegacyHotkeyPressed(sender, e);
+            return;
+        }
+#endif
+        if (_presenter.IsVisible) { DismissSession("UserDismissed"); return; }
+        // Remember the external window before the editable chat takes keyboard focus.
+        _composerTarget = _foreground.TryGetForegroundInfo();
+        ReplaceGuidance("ComposerOpened");
+        _presenter.SetState("");
+        _presenter.SetMicrophoneState(false);
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("POINTLY_DEBUG_PREVIEW") == "true")
+        {
+            _presenter.Preview();
+            return;
+        }
+#endif
+        _presenter.Summon();
+    }
+
+    private bool IsComposerPreview()
+    {
+#if DEBUG
+        return Environment.GetEnvironmentVariable("POINTLY_DEBUG_PREVIEW") == "true";
+#else
+        return false;
+#endif
+    }
+
+    private ForegroundWindowInfo? RestoreComposerTarget()
+    {
+        ForegroundWindowInfo? info = _foreground.TryGetForegroundInfo() ?? _composerTarget;
+        if (info?.Context?.IsFresh != true) return null;
+        _targetWatcher.Clear();
+        _presenter.HideInput();
+        if (!NativeMethods.SetForegroundWindow(info.Hwnd)) return null;
+        return _foreground.TryGetForegroundInfo()?.Hwnd == info.Hwnd ? info : null;
+    }
+
+    private async void OnTypedQuestion(string question)
+    {
+        if (IsComposerPreview())
+        {
+            _presenter.ShowInstruction("Preview only. Your question was received; no AI request was sent.");
+            return;
+        }
+        if (_invocation is not null)
+        {
+            _presenter.SetState("Working… Ctrl+Space cancels");
+            return;
+        }
+        _voice.Cancel("TypedQuestion");
+        ForegroundWindowInfo? info = RestoreComposerTarget();
+        if (info is null)
+        {
+            _presenter.ShowInstruction("Open the app you want help with, then close and reopen Pindo.");
+            return;
+        }
+        try
+        {
+            _presenter.SetState("Thinking… Ctrl+Space cancels");
+            _ = await RunVoiceGuidanceAsync(info, question, CancellationToken.None);
+            if (!_closed && _presenter.IsVisible) _presenter.SetState("");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log($"TypedQuestionFailed Reason={ex.GetType().Name}");
+            if (!_closed && _presenter.IsVisible) _presenter.SetState("Couldn't complete the request. Check diagnostics.");
+        }
+    }
+
+    private void OnMicrophoneRequested()
+    {
+        if (IsComposerPreview())
+        {
+            _presenter.SetState("Preview mode · Microphone off");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ELEVENLABS_API_KEY")) &&
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ELEVENLABS_API_KEY", EnvironmentVariableTarget.User)))
+        {
+            _presenter.SetMicrophoneState(false);
+            _presenter.SetState("Voice needs an ElevenLabs key. You can still type a question.");
+            return;
+        }
+        ForegroundWindowInfo? info = RestoreComposerTarget();
+        if (info is null)
+        {
+            _presenter.ShowInstruction("Open the app you want help with, then close and reopen Pindo.");
+            return;
+        }
+        ReplaceGuidance("VoiceRequested");
+        _presenter.ShowInstruction("");
+        if (_voice.IsActive)
+        {
+            _microphoneMuted = _voice.Activity.MicrophoneOn;
+            _voice.SetMuted(_microphoneMuted);
+            return;
+        }
+        _microphoneMuted = false;
+        _voice.Summon();
+    }
+
+    private async void OnLegacyHotkeyPressed(object? sender, EventArgs e)
     {
         var total = Stopwatch.StartNew();
         bool voiceMode = !string.Equals(Environment.GetEnvironmentVariable("POINTLY_VOICE_MODE"),
@@ -503,9 +618,19 @@ public partial class MainWindow : Window
 
             if (!forceVision && candidates.Count > 0)
             {
-                TutorResponse response = await RequestTutorStepAsync(
-                    info, userQuery, candidates, stage, cancellationToken, walkthroughAttempt is not null);
-                if (response.Confidence >= MinimumUiaConfidence)
+                TutorResponse? response = null;
+                try
+                {
+                    response = await RequestTutorStepAsync(
+                        info, userQuery, candidates, stage, cancellationToken, walkthroughAttempt is not null);
+                }
+                catch (HttpRequestException ex)
+                {
+                    // A tutor transport failure must not prevent the existing visual provider from helping.
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Log($"UIA tutor unavailable HTTP={(int?)ex.StatusCode}; routing to vision.");
+                }
+                if (response is not null && response.Confidence >= MinimumUiaConfidence)
                 {
                     UiAutomationService.TutorCandidate selected = candidates.Single(
                         candidate => candidate.Id == response.TargetElementId);
@@ -565,7 +690,7 @@ public partial class MainWindow : Window
                         ? "UIA target could not be resolved; routing to vision."
                         : "UIA target is ambiguous; routing to vision.");
                 }
-                else
+                else if (response is not null)
                 {
                     Log($"UIA tutor confidence={response.Confidence:F2} is below {MinimumUiaConfidence:F2}; routing to vision.");
                 }
@@ -749,7 +874,7 @@ public partial class MainWindow : Window
             EnsureAttemptCurrent(walkthroughAttempt, cancellationToken);
             EnsureForegroundUnchanged(info);
             _presenter.ShowTarget(coordinates.PhysicalScreenBounds, response.BoundingBox is null,
-                fixedInstruction ?? response.Instruction ?? "Look for the indicated control.");
+                fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.");
             StatusText.Text = fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.";
             onInstruction?.Invoke(response.Instruction ?? $"Look for '{response.TargetLabel}'.");
             StartClickVerification(info, coordinates.PhysicalScreenBounds,
@@ -972,7 +1097,14 @@ public partial class MainWindow : Window
     private void OnInterruptPressed(object? sender, EventArgs e)
     {
         if (!_presenter.IsVisible) return;
+        if (IsComposerPreview()) { _presenter.SetState("Preview mode · Microphone off"); return; }
+        if (RestoreComposerTarget() is null)
+        {
+            _presenter.ShowInstruction("Open the app you want help with, then close and reopen Pindo.");
+            return;
+        }
         ReplaceGuidance("ExplicitInterrupt");
+        _presenter.ShowInstruction("");
         if (_voice.IsActive) _voice.Interrupt(); else _voice.Summon(_microphoneMuted);
     }
 

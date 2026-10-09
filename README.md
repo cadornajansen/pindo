@@ -16,21 +16,21 @@ dotnet build Pointly.sln -c Debug --no-restore
 dotnet test Pointly.sln -c Debug --no-build --no-restore
 ```
 
-For a visual preview that does not call AI providers, run these in the same PowerShell terminal:
+To build and start the live app with your locally saved cloud credentials:
 
 ```powershell
-$env:POINTLY_VOICE_MODE = 'false'
-$env:POINTLY_DEBUG_PREVIEW = 'true'
-dotnet run --project Pointly.App/Pointly.App.csproj -c Debug --no-build
+powershell -ExecutionPolicy Bypass -File .\scripts\Start-Pindo.ps1
 ```
 
-The app starts in the system tray. Press **Ctrl+Space** to show/dismiss the preview. Exit using its tray menu. This preview only verifies presentation, not inference or grounding. Close other Pindo/Pointly instances first. Remove `POINTLY_DEBUG_PREVIEW` from the launch environment before testing real inference.
+The app starts in the system tray. Focus the app you need help with, then press **Ctrl+Space** to open the composer. Type a question and press **Enter**; **Shift+Enter** adds a line. Click the microphone to start voice, and click again to mute it. A crossed-out microphone means recording is off. **Escape** or **Ctrl+Space** dismisses the composer. Exit through the tray menu before rebuilding. Close other Pindo/Pointly instances first.
+
+For a visual preview without AI requests, add `-Preview` to the launcher command. See [the chat UI change and validation](docs/CHAT_UI.md).
 
 ## Current capabilities and limits
 
 The imported code includes window tracking, UI Automation, Windows.Graphics.Capture, visual overlays, step verification, walkthroughs, and voice infrastructure. Historical source notes are preserved under [docs/pointly-baseline](docs/pointly-baseline/PRODUCT.md); their verification claims describe the source project.
 
-**Local inference is not integrated yet.** The imported runtime still uses AssemblyAI for tutor selection, OpenRouter (or optional Bedrock) for vision, and ElevenLabs for voice. Voice is enabled by default outside the preview above. Normal invocation can use configured cloud credentials; do not describe this baseline as offline.
+**Local inference is not integrated yet.** The runtime uses AssemblyAI for tutor selection, OpenRouter (or optional Bedrock) for vision, and ElevenLabs for voice. The composer starts with recording off. The live launcher selects OpenRouter for vision and refreshes credentials from Windows user environment variables. Tutor HTTP failures fall back to screenshot guidance. Do not describe this baseline as offline.
 
 The selected local candidate is **MAI-UI-2B**, community Ollama package `maternion/mai-ui:2b`. The user is managing its download. Installing it does not wire it into this app. No benchmark result is claimed yet.
 

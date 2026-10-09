@@ -6,15 +6,28 @@ import SwiftUI
 final class QuickBar {
     private let model = QuickBarModel()
     private lazy var panel = QuickBarPanel(rootView: QuickBarView(model: model, onClose: { [weak self] in self?.hide() }),
-                                           onResignKey: { [weak self] in if self?.model.isBusy == false && self?.model.tutor.active == false { self?.hide() } })
+                                           onResignKey: { [weak self] in if self?.model.isBusy == false && self?.model.tutor.active == false && self?.model.guide.active == false { self?.hide() } })
     private var isShown = false
 
-    init() { _ = panel }
+    init() {
+        _ = panel
+        // While guiding, keep the bar from covering the control it points at.
+        model.guide.onTarget = { [weak self] point in
+            guard let self, self.isShown, self.panel.frame.insetBy(dx: -40, dy: -40).contains(point),
+                  let screen = NSScreen.screens.first(where: { $0.frame.contains(point) }) else { return }
+            let y = point.y > screen.visibleFrame.midY ? screen.visibleFrame.minY + 12 : screen.visibleFrame.maxY - self.panel.frame.height - 12
+            self.panel.animator().setFrameOrigin(NSPoint(x: self.panel.frame.minX, y: y))
+        }
+    }
+
+    func checkAgain() { model.guide.checkAgain() }
+    func cancel() { model.cancel() }
 
     func toggle() { isShown ? hide() : show() }
 
-    func submit(_ text: String) {
+    func submit(_ text: String, mode: QuickBarModel.Mode? = nil) {
         show()
+        if let mode { model.mode = mode }
         model.text = text
         model.send()
     }
@@ -112,8 +125,11 @@ final class QuickBarModel {
     var isBusy = false
     var awaitingApproval = false
     var focusTick = 0
-    var teachMode = false
+    enum Mode: String, CaseIterable { case guide = "Guide", act = "Do", teach = "Teach" }
+    var mode: Mode = .guide // Guide: Pindo points, you click. Do: Pindo acts (with confirmations). Teach: lessons.
+    var teachMode: Bool { mode == .teach }
     let tutor = TutorSession()
+    let guide = GuideSession()
     private var task: Task<Void, Never>?
     private var approval: CheckedContinuation<Bool, Never>?
 
@@ -123,8 +139,10 @@ final class QuickBarModel {
         guard !prompt.isEmpty, !isBusy else { return }
         text = ""
         answer = ""
-        if teachMode { tutor.start(prompt); return }
+        if teachMode { guide.stop(); tutor.start(prompt); return }
         tutor.stop()
+        if mode == .guide { guide.start(prompt) { [weak self] in self?.say($0) }; return }
+        guide.stop()
         isBusy = true
         task = Task {
             do {
@@ -142,6 +160,7 @@ final class QuickBarModel {
 
     func cancel() {
         tutor.stop()
+        guide.stop()
         task?.cancel()
         task = nil
         resolveApproval(false)
@@ -165,6 +184,37 @@ final class QuickBarModel {
     }
 }
 
+enum Figma {
+    static let fill = Color(red: 217 / 255, green: 217 / 255, blue: 217 / 255).opacity(0.2)
+    static let thinkingBorder = Color(red: 0, green: 140 / 255, blue: 1)        // #008CFF
+    static let stepNumber = Color(red: 243 / 255, green: 1, blue: 70 / 255)     // #F3FF46
+    static let barSize = CGSize(width: 557, height: 145)                       // 242 × 63
+    static let radius: CGFloat = 32                                            // 14
+    static let pointer = Color(red: 227 / 255, green: 1, blue: 69 / 255)       // #E3FF45 (Polygon 1)
+}
+
+/// Glassmorphism per the Figma frame: 20% #D9D9D9 over a blur, a light edge, and a soft shadow.
+/// macOS 26 renders the blur with Liquid Glass; older systems use a material.
+struct GlassBackground<S: InsettableShape>: View {
+    let shape: S
+    var glow: Color? = nil // Thinking state: 1 px #008CFF edge, glowing
+
+    var body: some View {
+        ZStack {
+            if #available(macOS 26.0, *) {
+                Color.clear.glassEffect(.regular, in: shape)
+            } else {
+                shape.fill(.ultraThinMaterial)
+            }
+            shape.fill(Figma.fill)
+            shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0.08)],
+                                              startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+            if let glow { shape.strokeBorder(glow, lineWidth: 2) }
+        }
+        .shadow(color: glow?.opacity(0.6) ?? .black.opacity(0.2), radius: glow == nil ? 18 : 14, y: glow == nil ? 8 : 0)
+    }
+}
+
 struct QuickBarView: View {
     @Bindable var model: QuickBarModel
     let onClose: () -> Void
@@ -182,11 +232,21 @@ struct QuickBarView: View {
                     .background(card)
             }
             if !model.answer.isEmpty {
-                ViewThatFits(in: .vertical) {
-                    answerText
-                    ScrollView { answerText }
+                VStack(alignment: .leading, spacing: 0) {
+                    ViewThatFits(in: .vertical) {
+                        answerText
+                        ScrollView { answerText }
+                    }
+                    .frame(maxHeight: 320)
+                    if model.guide.active && !model.guide.working {
+                        Button("Check again") { model.guide.checkAgain() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                            .background(GlassBackground(shape: Capsule()))
+                            .padding([.horizontal, .bottom], 16)
+                    }
                 }
-                .frame(maxHeight: 320)
                 .background(card)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -199,15 +259,8 @@ struct QuickBarView: View {
 
     // Figma PINDO › Frame 1 (Group 12 idle bar, Group 11 "Thinking...", Frame 2 step pill).
     // The mockup is drawn at ~0.43×; everything here is the Figma value × 2.3.
-    private enum Figma {
-        static let fill = Color(red: 217 / 255, green: 217 / 255, blue: 217 / 255).opacity(0.2)
-        static let thinkingBorder = Color(red: 0, green: 140 / 255, blue: 1)        // #008CFF
-        static let stepNumber = Color(red: 243 / 255, green: 1, blue: 70 / 255)     // #F3FF46
-        static let barSize = CGSize(width: 557, height: 145)                       // 242 × 63
-        static let radius: CGFloat = 32                                            // 14
-    }
 
-    private var thinking: Bool { model.isBusy && !model.awaitingApproval }
+    private var thinking: Bool { (model.isBusy && !model.awaitingApproval) || model.guide.working }
 
     private var bar: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -238,11 +291,14 @@ struct QuickBarView: View {
                 }
                 .padding(.bottom, 9)
                 // Not in the design: Teach mode (PR #1) needs a switch; kept small next to the model chip.
-                Toggle("Teach", isOn: $model.teachMode)
-                    .toggleStyle(.button).controlSize(.mini)
-                    .disabled(model.isBusy)
-                    .onChange(of: model.teachMode) { model.tutor.stop() }
-                    .padding(.bottom, 6)
+                // Not in the design: Guide (default), Do and Teach need a switch; kept small next to the model chip.
+                Picker("", selection: $model.mode) {
+                    ForEach(QuickBarModel.Mode.allCases, id: \.self) { Text($0.rawValue) }
+                }
+                .pickerStyle(.segmented).labelsHidden().controlSize(.mini).fixedSize()
+                .disabled(model.isBusy || model.guide.active)
+                .onChange(of: model.mode) { model.tutor.stop(); model.guide.stop() }
+                .padding(.bottom, 6)
                 Spacer()
                 Image("FigmaMic").resizable().frame(width: 16, height: 23)          // 7 × 10
                     .opacity(0.5) // ponytail: voice (plan M2) isn't built; shown per design, inactive
@@ -267,40 +323,35 @@ struct QuickBarView: View {
     /// "Step N" pill under the bar while PinDo works (one per action). PinDo doesn't plan the total
     /// up front, so the design's "of 3" is left out.
     @ViewBuilder private var stepPill: some View {
-        let steps = model.answer.split(separator: "\n").filter { $0.hasPrefix("▸") }.count
-        if thinking, steps > 0 {
+        let steps = model.guide.active ? model.guide.step : model.answer.split(separator: "\n").filter { $0.hasPrefix("▸") }.count
+        if thinking || model.guide.active, steps > 0 {
             HStack(spacing: 12) {
                 Image("FigmaClipboard").resizable().frame(width: 16, height: 16)    // 7
                 (Text("Step ") + Text("\(steps)").foregroundColor(Figma.stepNumber))
                     .font(.system(size: 14, weight: .semibold)).tracking(-0.83).foregroundStyle(.white)
             }
             .padding(EdgeInsets(top: 7, leading: 44, bottom: 7, trailing: 46))     // py 3, pl 19, pr 20
-            .background(Capsule().fill(.ultraThinMaterial).overlay(Capsule().fill(Figma.fill)))
+            .background(GlassBackground(shape: Capsule()))
             .transition(.opacity)
         }
     }
 
-    /// 20% #D9D9D9 like the design; a blur sits underneath so text stays readable over busy windows
-    /// (the mockup sits on a smooth wallpaper, real desktops don't).
     private var glass: some View {
-        let shape = RoundedRectangle(cornerRadius: Figma.radius, style: .continuous)
-        return shape.fill(.ultraThinMaterial)
-            .overlay(shape.fill(Figma.fill))
-            .overlay(shape.strokeBorder(Figma.thinkingBorder, lineWidth: 2).opacity(thinking ? 1 : 0))  // 1 px
-            .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
+        GlassBackground(shape: RoundedRectangle(cornerRadius: Figma.radius, style: .continuous),
+                        glow: thinking ? Figma.thinkingBorder : nil)
             .animation(.easeInOut(duration: 0.3), value: thinking)
     }
 
     /// White 18 px circle with the four-bar waveform (sends); Stop ■ while working, ✓ to approve.
     private var primaryButton: some View {
-        let active = canSend || model.isBusy
+        let active = canSend || model.isBusy || model.guide.active
         return Button {
-            if thinking { model.cancel() } else { model.send() }
+            if thinking || model.guide.active { model.cancel() } else { model.send() }
         } label: {
             Group {
                 if model.awaitingApproval {
                     Image(systemName: "checkmark").font(.system(size: 17, weight: .bold))
-                } else if thinking {
+                } else if thinking || model.guide.active {
                     Image(systemName: "stop.fill").font(.system(size: 14, weight: .bold))
                 } else {
                     HStack(alignment: .center, spacing: 2.1) {                     // bars 1.32 wide, 2.23 apart
@@ -320,7 +371,9 @@ struct QuickBarView: View {
 
     private var answerText: some View {
         Text(model.answer)
-            .font(.system(size: 15))
+            .font(.system(size: 15, weight: .medium))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.2), radius: 1.4, y: 1)
             .lineSpacing(3)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -328,9 +381,6 @@ struct QuickBarView: View {
     }
 
     private var card: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(.regularMaterial)
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.1)))
-            .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
+        GlassBackground(shape: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }

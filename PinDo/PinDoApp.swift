@@ -30,7 +30,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // a distributed notification named com.pindopro.PinDo.debug.run with the task as its object.
         DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.run"), object: nil, queue: .main) { [quickBar] note in
             let task = note.object as? String
-            MainActor.assumeIsolated { if let task { quickBar.submit(task) } }
+            MainActor.assumeIsolated {
+                guard let task else { return }
+                // "do: …" / "teach: …" pick a mode; otherwise Guide.
+                let mode = QuickBarModel.Mode.allCases.first { task.lowercased().hasPrefix($0.rawValue.lowercased() + ":") }
+                quickBar.submit(mode.map { String(task.dropFirst($0.rawValue.count + 1)).trimmingCharacters(in: .whitespaces) } ?? task, mode: mode ?? .guide)
+            }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.check"), object: nil, queue: .main) { [quickBar] _ in
+            MainActor.assumeIsolated { quickBar.checkAgain() }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.stop"), object: nil, queue: .main) { [quickBar] _ in
+            MainActor.assumeIsolated { quickBar.cancel() }
         }
         #endif
     }

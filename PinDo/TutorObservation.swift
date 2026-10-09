@@ -39,7 +39,7 @@ enum TutorCapture {
         guard AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &window) == .success,
               let window, CFGetTypeID(window) == AXUIElementGetTypeID() else { return nil }
         var document: CFTypeRef?
-        let element = unsafeBitCast(window, to: AXUIElement.self)
+        let element = unsafeDowncast(window, to: AXUIElement.self)
         guard AXUIElementCopyAttributeValue(element, kAXDocumentAttribute as CFString, &document) == .success else { return nil }
         if let value = document as? String { return URL(string: value)?.host?.lowercased() }
         return (document as? URL)?.host?.lowercased()
@@ -86,9 +86,9 @@ final class TutorWatcher {
     private var monitor: Any?
     private var observer: AXObserver?
     private var applicationObserver: NSObjectProtocol?
-    private var callback: (() -> Void)?
+    private var callback: (@MainActor @Sendable () -> Void)?
 
-    func start(pid: pid_t, changed: @escaping () -> Void) {
+    func start(pid: pid_t, changed: @escaping @MainActor @Sendable () -> Void) {
         stop()
         callback = changed
         monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp, .keyUp, .scrollWheel]) { _ in

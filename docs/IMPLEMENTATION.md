@@ -8,7 +8,7 @@ Product boundaries and acceptance criteria live in [product scope](PRODUCT_SCOPE
 |---|---|---|
 | `LocalTutor.Desktop` | WPF command palette, native shortcut, foreground context, mock tutor, Ollama boundary | Core |
 | `LocalTutor.Core` | Serializable tutoring models and shared contracts | No application projects |
-| `LocalTutor.Tools` | Typed utility base class, approved-file inspection/image conversion, PNG compression, video inspection/download | Core |
+| `LocalTutor.Tools` | Typed utility base class, approved-file inspection/image conversion, PNG compression, video inspection/download, bounded ZIP creation/extraction | Core |
 | `LocalTutor.Tests` | Focused tests for shared contracts and pure tool logic | Core, Tools |
 
 Desktop targets `net10.0-windows`; Core, Tools, and Tests target `net10.0` because their shared logic does not require Windows. Add a Desktop → Tools reference only when the desktop needs a real utility. No database, web server, or additional framework is required.
@@ -283,6 +283,80 @@ dotnet build src/LocalTutor.Tools/LocalTutor.Tools.csproj --no-restore -warnaser
 | `pdf.optimize` | Planned; no executable class or adopted PDF optimizer. Select a free local utility/library and verify page count/readability, encryption/features/image-quality tradeoffs, cancellation/conflicts and size outcomes. No lossless claim without verification. |
 
 Changed files are confined to new `src/LocalTutor.Tools/Compression/` and `tests/LocalTutor.Tests/Compression/` files and these existing shared docs/root README. The dependency inventory stays in the separate planning directory and is excluded from Git. Commit author and committer use the confirmed `KampferArchives <eleneusgyen@gmail.com>` identity. Commit only this completed prompt on local `tool_calling_functions`; the pre-existing Desktop project edit is excluded. No push, publication, deployment or external transfer is authorized.
+
+## ZIP archives
+
+Completed local library slice: **`archive.create_zip` / `CreateZipTool`** and **`archive.extract_zip` / `ExtractZipTool`**, in namespace `LocalTutor.Tools.ZipArchive`. IDs match the planning directory's `TOOL_FUNCTIONS_INDEX.txt`. Both derive from `LocalTool<TInput, TOutput>` and use the existing Core contracts. New implementation/test files are confined to `src/LocalTutor.Tools/ZipArchive/` and `tests/LocalTutor.Tests/ZipArchive/`. No Core, Desktop, project or solution change is included. No registry or Desktop/model dispatch exists for these tools; the lead must coordinate integration before advertising them in the assistant.
+
+### Inputs, previews and results
+
+| Tool | Typed model input | Successful result |
+|---|---|---|
+| `archive.create_zip` | `CreateZipInput(InputPaths: string[], OutputPath: string, ExcludedPaths: string[]? = null)` | `CreatedZip(ArchivePath, ArchiveBytes, EntryCount, InputBytes)` |
+| `archive.extract_zip` | `ExtractZipInput(ArchivePath: string, OutputDirectory: string)` | `ExtractedZip(OutputDirectory, ExtractedPaths, FileCount, DirectoryCount, ExpandedBytes)` |
+
+Required JSON fields are annotated; unknown members are rejected. Arguments carry no consent. `InputPaths` selects exact ordinary files/directories; a selected directory includes its ordinary descendants. ZIP names retain each selection's basename and relative subtree, including empty directories. Overlapping selections and colliding basenames are rejected. Optional exact exclusions must be descendants of a selected directory and exclude their subtrees. If the proposed ZIP lies inside a selected subtree, its exact output path is automatically excluded and shown in the preview. Excluded content is never opened. Originals are never changed. Creation uses **stored ZIP entries (`NoCompression`)** so it cannot produce an archive that violates the extraction expansion-ratio limit; packaging is not a compression/size-reduction promise. Timestamps, permissions and extended filesystem metadata are not preserved in entries.
+
+Trusted host code constructs `ArchiveAccessScope(workspacePath, approvedInputs, approvedOutputs)` after the user selects an existing local workspace and exact inputs/output. Approving an input directory authorizes reading its descendants; it does not approve other workspace paths. The output's parent must exist, while the output file or extraction directory must be new. Extraction into an existing directory, even an empty one, is a conflict; no merge or overwrite mode is exposed.
+
+Each tool's static `PreviewAsync(scope, input, cancellationToken, progress, clock)` returns `ToolResult<ArchivePreview>` without creating any output. Display **`OutputPath`, `Entries` (`Name`, `IsDirectory`, `Bytes`), `EntryCount`, `TotalInputBytes`, `Exclusions`, `Conflicts`, and `ExpiresAt`**. Extraction entries include implied directories, so the proposed tree is complete; `Bytes` are declared expanded sizes until actual extraction verifies them. Creation sizes are counted while hashing actual inputs. Existing ordinary outputs are listed as conflicts; unsafe names/trees and denied paths fail preview. A preview containing any conflict cannot execute. The output field and every entry name describe the proposed output tree, not a completed operation.
+
+Only after the user explicitly approves that displayed effect may the host construct `ArchiveApproval(preview)` and pass it to the matching tool constructor. Preview/approval/scope are host state, never model-deserialized objects. Approval is bound to the exact typed input snapshot, source hashes and tree, expires after five minutes, and is consumed once per preview, including failed execution attempts. New approval wrappers do not reset consumption. Dispose abandoned previews and keep one active preview per workflow. Validation/pre-cancellation follows the base contract before consuming approval. Source changes, additions/removals, mismatch, expiry or reuse require a fresh preview and user decision. The optional `TimeProvider` is trusted host configuration for approval expiry, not a model argument.
+
+```csharp
+var scope = new ArchiveAccessScope(workspace,
+    approvedInputs: ["lesson-materials"], approvedOutputs: ["lesson-materials.zip"]);
+var input = new CreateZipInput(["lesson-materials"], "lesson-materials.zip");
+var prepared = await CreateZipTool.PreviewAsync(scope, input, cancellationToken);
+if (!prepared.Success) { /* Display prepared.Error and return control. */ return; }
+using var preview = prepared.Value!;
+// Display every preview field above; obtain explicit user approval of this exact effect.
+var result = await new CreateZipTool(new ArchiveApproval(preview), progress)
+    .ExecuteAsync(input, cancellationToken);
+// Display result.Error or the actual result.Value.ArchivePath/ArchiveBytes.
+
+// Extraction is a separate user invocation, selection, preview and approval.
+var extractScope = new ArchiveAccessScope(workspace,
+    approvedInputs: ["lesson-materials.zip"], approvedOutputs: ["lesson-unpacked"]);
+var extractInput = new ExtractZipInput("lesson-materials.zip", "lesson-unpacked");
+var inspected = await ExtractZipTool.PreviewAsync(extractScope, extractInput, cancellationToken);
+// Check inspected.Success, display its preview and obtain fresh explicit approval.
+// Then: new ExtractZipTool(new ArchiveApproval(inspected.Value!), progress).ExecuteAsync(...)
+// Dispose the extraction preview when finished or abandoned.
+```
+
+### Validation, resource limits and failure handling
+
+The format allowlist is **ordinary single-disk ZIP with stored or deflated entries only**. Content/signatures, the end record and central-directory structure are checked independently of the `.zip` extension. ZIP64, encrypted archives, self-extracting/prefixed archives, multidisk archives and other archive formats/methods are rejected. Preview checks the central-directory count/size before constructing .NET entry objects. ZIP entry permissions/attributes are not applied. Symlinks, reparse-point/device metadata and Unix special-file types are rejected; directory names/types must agree and directory data must be empty. Extraction verifies actual expanded byte counts and an independently computed CRC32 for each file before publication, rather than trusting metadata or .NET decompression alone.
+
+Canonical path and ancestor checks reject unapproved/out-of-workspace paths, protected system locations, drive-relative/network/device paths (including Windows drives identified as network drives), alternate streams, traversal, symlinks/reparse points and invalid Windows components. Entry rules apply on every OS: forward-slash relative names, depth at most 32, components at most 255 UTF-16 characters, entry names at most 1024 characters, extraction paths at most 1024 characters, no empty/dot components, trailing dots/spaces, controls, drive letters/streams, reserved device aliases (including superscript COM/LPT forms), or `~` short-name aliases. Names must use Unicode NFC. Duplicate names, case collisions anywhere in the tree, and file/directory collisions are rejected with ordinal case-insensitive comparisons. Archive names encoded in more than 1024 bytes are rejected during central-directory inspection. This is a conservative compatibility slice; some otherwise legitimate ZIPs/names are refused.
+
+Fixed limits in `ArchiveLimits`: **4096 entries/tree nodes including implied directories**, **128 MiB per ordinary file**, **256 MiB total input/expanded bytes**, **256 MiB ZIP bytes**, **4 MiB central-directory metadata**, and **200:1 maximum expansion ratio for individual entries larger than 1 MiB**. Limits apply to declared sizes in preview and actual bytes while streaming. ZIP overhead counts against the archive-size cap, so a stored archive may reject an input near the total-byte ceiling. Each preview/execution has a **cooperative two-minute deadline**. I/O and enumeration run on a background task with cancellation between steps/chunks. These are application limits, not hard OS quotas: filesystem calls and trusted progress callbacks can delay cancellation, and no wall-clock timeout exhaustion or hostile OS stall was exercised in tests.
+
+Execution rechecks the preview plan and sources, writes an isolated temporary sibling, rechecks paths/sources immediately before publication, and renames with overwrite disabled. Extraction publishes the complete staged directory; creation publishes the ZIP file. The rename is the commit point; cancellation arriving after it cannot undo the completed output. No progress callback runs after publication. Before that point, failure/cancellation removes the staging file/tree. Cleanup failure is reported as `CleanupFailed` or `CanceledWithCleanupWarning`; crash/power-loss recovery is not implemented. Progress uses only `ArchiveProgress(Stage, CompletedEntries, TotalEntries, ProcessedBytes)`, without paths or file content. Private paths are returned only in user-facing preview/results, not errors or telemetry; these tools write no logs and make no network/process calls.
+
+Results follow `ToolResult<T>`: failures have `Success=false`, null value and codes including `InvalidZip`, `UnsupportedZip`, `ResourceLimit`, `UnsafeEntryName`, `EntryConflict`, `LinkedEntry`, path/approval errors, `OutputConflict`, `SourceChanged`, `TimedOut`, `CleanupFailed`, or generic `ArchiveFailed` for local access/invalid-data errors. User cancellation throws `OperationCanceledException`, matching the base contract; the host must display canceled status rather than success. Exceptions from a trusted host callback still propagate after partial cleanup.
+
+Use an ordinary-user **trusted local workspace**. Path/ancestor checks and Windows file-share modes are not an OS sandbox against concurrently hostile directory replacement or hard-link/mount manipulation. POSIX special files/network mounts, Windows junctions/ACLs/short-name behavior, long-path device compatibility and crash recovery require additional platform qualification before production use. The Unix symlink fixture does not validate Windows junction handling.
+
+### Dependency, verification and lead handoff
+
+Implementation uses the existing .NET 10 **`System.IO.Compression.ZipArchive`**, `System.IO`, `System.Security.Cryptography` and `System.Text.Json`. No NuGet package, native executable, separate archive library, installation or download was added. The installed .NET runtime is MIT licensed; its local license and distribution notices were inspected. Built-in APIs are excluded from third-party entries by the shared inventory's existing rules; the planning file records this ZIP slice as using built-in .NET only and preserves all existing third-party entries. This library is framework-dependent; .NET's native compression assets remain the runtime distribution's responsibility. Recheck runtime notices if the lead later selects self-contained redistribution.
+
+Linux verification with **SDK 10.0.112/runtime 10.0.12**: **56 focused ZIP cases passed**, covering nested folders, empty folders/archives, implicit directories, stored/deflated payloads and ZIP comments, UTF-8 names, exact approvals/exclusions, content preservation, path boundaries/traversal, Windows aliases/streams/ambiguous names, duplicate/colliding trees, links/special metadata, forged and actual excessive entry counts, high expansion ratios, per-file/archive/total/depth limits, corrupted CRCs/false expanded sizes, conflict races, preflight/preview/mid-write cancellation, partial cleanup, source mutation/replacement and added files, approval mutation/mismatch/expiry/reuse/disposal, and callback failure cleanup. **Full offline repository run: 195 passed, two video checks skipped** (live sample disabled and optional installed-binary parser unconfigured). Tools built with `--no-restore -warnaserror`: **zero warnings/errors**. No external transfer or network test occurred. Windows/WPF execution, Desktop/model dispatch and educator workflow acceptance remain unverified.
+
+```powershell
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore --filter FullyQualifiedName~ZipArchive
+# Ensure live network fixtures are disabled for local-only verification:
+$env:LOCAL_TUTOR_APPROVED_LIVE_VIDEO_TEST = '0'
+$env:LOCAL_TUTOR_YTDLP = ''
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore
+dotnet build src/LocalTutor.Tools/LocalTutor.Tools.csproj --no-restore -warnaserror
+```
+
+Lead handoff: explicitly allowlist the two exact IDs, bind these typed arguments/results, keep selections/preview/approval in trusted host state, display the complete preview/conflicts/limits, await effect-specific user consent, propagate progress/cancellation and map failures accurately. Extraction requires a new directory name in an existing approved parent. Qualify actual Windows path/link/ACL behavior before enabling it. No Core contract change is required. Both ZIP IDs are implemented at the library boundary; unsupported archive modes remain unavailable. Existing planned conversion/compression/PDF/organization functions are not changed by this slice.
+
+Only this completed prompt's ZIP files and existing README/implementation updates belong in the local Conventional Commit on `tool_calling_functions`, with author and committer `KampferArchives <eleneusgyen@gmail.com>`. The pre-existing Desktop project edit and the separate planning inventory are excluded. No push, publication, deployment or external transfer is authorized.
 
 ## Ollama boundary
 

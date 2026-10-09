@@ -26,9 +26,8 @@ enum Agent {
             agentLog.info("step \(history.count + 1, privacy: .public) in \(Date().timeIntervalSince(started), format: .fixed(precision: 2), privacy: .public)s: \(action.summary, privacy: .public)")
             try Task.checkCancellation()
             if action.summary == lastProposal {
-                // Re-proposing a step that just succeeded almost always means the task is finished.
                 report(history.last?.hasSuffix("✓") == true
-                    ? "Done."
+                    ? "Stopped before repeating “\(action.summary)”. The task is probably finished. Tell me if it isn't."
                     : "I keep trying the same step (\(action.summary)), so I stopped. Try rephrasing the task.")
                 return
             }
@@ -384,7 +383,10 @@ enum Ollama {
         var req = URLRequest(url: base.appending(path: endpoint))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        // Sorted keys keep "action" first in every schema variant. Ollama turns the schema into an output template
+        // in key order, and Swift dictionaries shuffle it: with "text" before "action" the model couldn't
+        // pick `type` and pressed cmd+n instead (reproduced offline).
+        req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         return req
     }
 }

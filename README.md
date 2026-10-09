@@ -83,7 +83,7 @@ Use one shared repository and direct collaborator access. Create your assigned b
 | 3 — documentation | `docs/product` | README and core documentation |
 | 4 — research | `research/educators` | Scoped research, prompts, validation scenarios |
 
-See [team onboarding and boundaries](docs/TEAM_TASKS.md), [product requirements](docs/PRD.md), [implementation contracts](docs/IMPLEMENTATION.md), and [submission disclosures](docs/HACKATHON_COMPLIANCE.md).
+Start with the [product documentation index](docs/README.md) for scope, requirements, the data model/ERD, and validation. See [team onboarding and boundaries](docs/TEAM_TASKS.md), [implementation contracts](docs/IMPLEMENTATION.md), and [submission disclosures](docs/HACKATHON_COMPLIANCE.md).
 
 Next milestone: benchmark `qwen3:1.7b` on the team's actual laptop and implement a small, application-independent UI Automation snapshot. Do not infer success from prior experiments or an API availability check.
 

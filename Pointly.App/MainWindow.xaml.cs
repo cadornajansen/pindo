@@ -56,10 +56,12 @@ public partial class MainWindow : Window
         _presenter.QuestionSubmitted += OnTypedQuestion;
         _presenter.MicrophoneRequested += OnMicrophoneRequested;
         _presenter.DismissRequested += () => DismissSession("EscapePressed");
+        _presenter.CheckRequested += OnCheckGoal;
         _targetWatcher = new TargetContextWatcher(Dispatcher, reason =>
         {
             ReplaceGuidance(reason);
-            _presenter.ShowInstruction("The window changed. Ask again to locate a fresh target.");
+            if (_goal.Active) PauseGoal("The window changed. Return to the target app and select Check again.");
+            else _presenter.ShowInstruction("The window changed. Ask again to locate a fresh target.");
             Log($"TargetInvalidated Reason={reason}");
         });
         _tutor = new TutorService(_tutorModel);
@@ -78,7 +80,7 @@ public partial class MainWindow : Window
         _voice.ActivityChanged += activity => Dispatcher.BeginInvoke(() =>
         {
             if (_closed || !ReferenceEquals(activity, _voice.Activity)) return;
-            _presenter.SetBusy(activity.Processing || _invocation is not null);
+            _presenter.SetBusy(activity.Processing || _invocation is not null || _goalWork is not null);
             _presenter.SetMicrophoneState(activity.MicrophoneOn);
             _presenter.SetState(activity.MicrophoneOn ? "● Microphone on · Listening" :
                 activity.Speaking ? "Speaking · Microphone off" : activity.Processing ? "Thinking · Microphone off" :
@@ -178,7 +180,7 @@ public partial class MainWindow : Window
             _presenter.ShowInstruction("Preview only. Your question was received; no AI request was sent.");
             return;
         }
-        if (_invocation is not null)
+        if (_invocation is not null || _goalWork is not null)
         {
             _presenter.SetState("Working… Ctrl+Space cancels");
             return;
@@ -193,7 +195,7 @@ public partial class MainWindow : Window
         try
         {
             _presenter.SetState("Thinking… Ctrl+Space cancels");
-            _ = await RunVoiceGuidanceAsync(info, question, CancellationToken.None);
+            _ = await ProcessGoalAsync(info, question, CancellationToken.None);
             if (!_closed && _presenter.IsVisible) _presenter.SetState("");
         }
         catch (OperationCanceledException) { }
@@ -320,24 +322,13 @@ public partial class MainWindow : Window
 
     private async Task<string?> ProcessVoiceQueryAsync(string transcript, CancellationToken cancellationToken)
     {
-        // Each accepted turn uses current application context; never keep the HWND from an earlier question.
-        ForegroundWindowInfo? info = _foreground.TryGetForegroundInfo();
-        if (info?.ProcessId == Environment.ProcessId) info = null;
-        if (info is null) throw new VoiceException("Processing", "NoForegroundWindow");
-        if (info.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase) &&
-            (transcript.Contains("pivottable", StringComparison.OrdinalIgnoreCase) ||
-             transcript.Contains("pivot table", StringComparison.OrdinalIgnoreCase)))
+        return await await Dispatcher.InvokeAsync(async () =>
         {
-            await Dispatcher.InvokeAsync(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                EnsureForegroundUnchanged(info);
-                CancelWalkthrough("NewVoiceRequest");
-                StartWalkthrough(info, DemoWalkthroughs.ExcelPivotTable);
-            });
-            return null;
-        }
-        return await await Dispatcher.InvokeAsync(() => RunVoiceGuidanceAsync(info, transcript, cancellationToken));
+            ForegroundWindowInfo? info = _foreground.TryGetForegroundInfo();
+            if (info?.ProcessId == Environment.ProcessId) info = RestoreComposerTarget();
+            if (info is null) throw new VoiceException("Processing", "NoForegroundWindow");
+            return await ProcessGoalAsync(info, transcript, cancellationToken);
+        });
     }
 
     private async Task<string?> RunVoiceGuidanceAsync(ForegroundWindowInfo info, string query,
@@ -438,8 +429,7 @@ public partial class MainWindow : Window
             // The hook observes the click before Excel has finished handling it.
             if (stepIndex > 0) await Task.Delay(350, invocation.Token);
             ForegroundWindowInfo? info = _foreground.TryGetForegroundInfo();
-            if (info is null || !(_walkthroughContext?.Owns(info.Context) ?? false) ||
-                !info.ProcessName.Equals("EXCEL", StringComparison.OrdinalIgnoreCase))
+            if (info is null || !(_walkthroughContext?.Owns(info.Context) ?? false))
                 throw new InvalidOperationException("Walkthrough foreground window changed.");
             if (step.ActionType == WalkthroughActionType.KeyPress)
             {
@@ -488,9 +478,7 @@ public partial class MainWindow : Window
 
     private void SpeakWalkthroughInstruction(string instruction, CancellationToken cancellationToken)
     {
-        if (string.Equals(Environment.GetEnvironmentVariable("POINTLY_VOICE_MODE"),
-                "false", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ELEVENLABS_API_KEY"))) return;
+        if (!_voice.IsActive) return;
         _ = SpeakWalkthroughInstructionAsync(instruction, cancellationToken);
     }
 
@@ -530,6 +518,7 @@ public partial class MainWindow : Window
         _walkthroughCancellation?.Dispose();
         _walkthroughCancellation = null;
         StatusText.Text = $"Walkthrough stopped at step {stepIndex + 1}. See log and retry.";
+        if (_goal.Active) PauseGoal("I could not locate this step. Select Check again to inspect the current screen.");
         Log($"WalkthroughFailed StepId={failed.Definition.Steps[stepIndex].Id} Reason={reason}");
     }
 
@@ -805,7 +794,9 @@ public partial class MainWindow : Window
                 : "Initial step. Visible actionable UIA controls only; no earlier tutoring step is available.");
         stage.Restart();
         StatusText.Text = "Asking tutor... (Ctrl+Space cancels)";
-        TutorResponse response = await _tutor.GetNextStepAsync(request, cancellationToken);
+        TutorResponse response;
+        try { response = await _tutor.GetNextStepAsync(request, cancellationToken); }
+        catch (HttpRequestException) { response = await _planner.SelectAsync(request, cancellationToken); }
         Log($"Model request={stage.ElapsedMilliseconds}ms.");
         return response;
     }
@@ -1022,6 +1013,12 @@ public partial class MainWindow : Window
             !_walkthrough.IsCurrent(attempt.SessionId, attempt.StepIndex)) return;
         WalkthroughSnapshot current = _walkthrough.Current!;
         WalkthroughStep step = current.CurrentStep!;
+        if (_goal.Active && step.ExpectedResult is not null && !_acceptingVerifiedGoal &&
+            result.Status is WalkthroughVerificationStatus.Completed or WalkthroughVerificationStatus.Failed)
+        {
+            _ = VerifyGoalStepAsync(true);
+            return;
+        }
         switch (result.Status)
         {
             case WalkthroughVerificationStatus.Waiting:
@@ -1115,7 +1112,9 @@ public partial class MainWindow : Window
     private void ReplaceGuidance(string reason)
     {
         _targetWatcher.Clear();
+        _goalWork?.Cancel();
         _invocation?.Cancel();
+        _presenter.SetBusy(false);
         CancelWalkthrough(reason);
         _verification.Cancel(reason);
         _stepVerification.Cancel(reason);
@@ -1124,6 +1123,7 @@ public partial class MainWindow : Window
 
     internal void DismissSession(string reason)
     {
+        _goal.Reset();
         _voice.Cancel(reason);
         ReplaceGuidance(reason);
         _presenter.Dismiss();
@@ -1145,6 +1145,9 @@ public partial class MainWindow : Window
         _voice.StateChanged -= OnVoiceStateChanged;
         _voice.Dispose();
         CancelWalkthrough("ApplicationClosing");
+        _goal.Reset();
+        _goalWork?.Cancel();
+        _planner.Dispose();
         _closed = true;
         _invocation?.Cancel();
         _stepVerification.Dispose();

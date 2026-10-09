@@ -16,7 +16,8 @@ public sealed record WalkthroughStep(string Id, string Instruction, string? Grou
     WalkthroughActionType ActionType = WalkthroughActionType.Click,
     int? ExpectedVirtualKey = null, string? ExpectedText = null,
     ExpectedUiState? PostActionState = null,
-    WalkthroughTargetKind TargetKind = WalkthroughTargetKind.Actionable);
+    WalkthroughTargetKind TargetKind = WalkthroughTargetKind.Actionable,
+    string? ExpectedResult = null);
 
 public sealed record WalkthroughDefinition(string Id, string Title, IReadOnlyList<WalkthroughStep> Steps);
 

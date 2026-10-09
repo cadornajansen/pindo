@@ -15,6 +15,7 @@ public partial class ChatWindow : Window
     public event Action<string>? QuestionSubmitted;
     public event Action? MicrophoneRequested;
     public event Action? DismissRequested;
+    public event Action? CheckRequested;
 
     public ChatWindow()
     {
@@ -89,6 +90,7 @@ public partial class ChatWindow : Window
     {
         _busy = busy;
         Question.IsEnabled = Send.IsEnabled = ClearButton.IsEnabled = MicrophoneButton.IsEnabled = !busy;
+        CheckButton.IsEnabled = !busy;
         CancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         ThinkingBorder.Busy = busy;
     }
@@ -133,6 +135,12 @@ public partial class ChatWindow : Window
     private void OnClear(object sender, RoutedEventArgs e) { Question.Clear(); Question.Focus(); }
     private void OnMicrophone(object sender, RoutedEventArgs e) => MicrophoneRequested?.Invoke();
     private void OnCancel(object sender, RoutedEventArgs e) => DismissRequested?.Invoke();
+    private void OnCheck(object sender, RoutedEventArgs e) => CheckRequested?.Invoke();
+    internal void SetCanCheck(bool canCheck)
+    {
+        CheckButton.Visibility = canCheck ? Visibility.Visible : Visibility.Collapsed;
+        CancelButton.Visibility = canCheck || _busy ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     internal void Exit() { _exitRequested = true; Close(); }
 

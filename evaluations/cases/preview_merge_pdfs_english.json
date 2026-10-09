@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.preview.merge_pdfs.english",
+  "skill_id": "preview.merge_pdfs",
+  "application_id": "apple.preview",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Open two generated PDFs practice-a.pdf and practice-b.pdf. Duplicate every participating PDF before editing. Merge A then B into practice-merged.pdf, annotate the copy with Reviewed, convert practice.png to JPEG and compress only a PDF copy. Preserve and compare the original files. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Merge these PDFs in Preview",
+  "expected_next_action": {
+    "objective": "In the destination PDF, ask the user to open File before making changes. Preview automatically saves edits.",
+    "target": {
+      "role": "menu",
+      "semantic_name": "File"
+    }
+  },
+  "expected_result": [
+    "The destination document's File menu is visible."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

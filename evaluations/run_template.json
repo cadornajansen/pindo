@@ -1,0 +1,21 @@
+{
+  "case_id": "eval.powerpoint.insert_image.english",
+  "status": "not_run",
+  "macos_version": null,
+  "application_version": null,
+  "account_plan": null,
+  "hardware": null,
+  "runtime_configuration": null,
+  "cold_or_warm": null,
+  "baseline_or_skill": null,
+  "target_accuracy": null,
+  "instruction_accuracy": null,
+  "completion_verification": null,
+  "grounding_accuracy": null,
+  "request_to_guidance_ms": null,
+  "observation_to_response_ms": null,
+  "input_tokens": null,
+  "output_tokens": null,
+  "failure_reason": null,
+  "evidence_notes": "Populate from a real run. Null means not measured; never replace missing observations with assumed passes."
+}

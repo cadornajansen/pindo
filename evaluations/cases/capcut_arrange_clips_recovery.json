@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.capcut.arrange_clips.recovery",
+  "skill_id": "capcut.arrange_clips",
+  "application_id": "bytedance.capcut",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The overlay hides the entire background.",
+  "user_instruction": "Arrange clips and overlays in CapCut I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect scale, position and opacity on the selected overlay before altering the primary clip.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

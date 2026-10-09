@@ -1,0 +1,26 @@
+name: Application skills
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -B tools/application_skills.py --check-bundle PinDo/Resources/ApplicationSkills.json
+      - run: python -B -m unittest discover -s tests -v
+  macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native application and resources
+        run: xcodebuild -project PinDo.xcodeproj -scheme PinDo -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Test skill matching and progression
+        run: |
+          swiftc -swift-version 6 PinDo/SkillLibrary.swift tests/SkillLibraryTests.swift -o build/skill-tests
+          build/skill-tests PinDo/Resources/ApplicationSkills.json
+      - name: Check bundled resource
+        run: test -f build/Build/Products/Debug/PinDo.app/Contents/Resources/ApplicationSkills.json

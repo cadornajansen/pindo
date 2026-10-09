@@ -30,3 +30,27 @@ defaults write com.pindopro.PinDo model <ollama-model-name>
 
 **Signing note:** the project signs ad-hoc ("Sign to Run Locally"), so macOS may forget the Accessibility grant after a rebuild.
 To fix that for good, pick your Apple ID team under *Signing & Capabilities* in Xcode (a free account works).
+
+## Application skills and Teach mode
+
+Enable **Teach** in the quick bar to learn one step at a time while you operate
+the app. The panel stays open and watches the selected window locally. Pause,
+resume and result confirmation are available. Turn Teach off for the existing
+action mode described above.
+
+The library contains **109 tasks across 15 application areas**, **330 task cases**
+and **15 shared runtime scenarios**. Office, CapCut, Figma web, Canva web and
+Photoshop are the first hands-on test set. The broader catalogue includes FL
+Studio, Illustrator, Premiere, After Effects and macOS utilities. All workflows
+remain hands-on unverified.
+
+```powershell
+py -B tools/application_skills.py --check-bundle PinDo/Resources/ApplicationSkills.json
+py -B -m unittest discover -s tests -v
+```
+
+See [the skill contract](docs/APPLICATION_SKILLS.md), [catalogue](docs/SKILL_CATALOGUE.md)
+and [Mac continuation guide](docs/MAC_HANDOFF.md). Python checks run on Windows;
+the app requires macOS. GitHub CI builds it and checks Swift progression guards
+and packaged resources. Teach also requires Screen Recording permission and a
+local runtime supporting image input.

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.illustrator.clipping_mask.recovery",
+  "skill_id": "illustrator.clipping_mask",
+  "application_id": "adobe.illustrator",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The wrong outline becomes the mask.",
+  "user_instruction": "Create an Illustrator clipping mask I am stuck.",
+  "expected_next_action": {
+    "objective": "Undo and verify topmost selected path order before remaking the mask.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

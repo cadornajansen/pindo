@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "eval.powerpoint.insert_image",
+  "skill_id": "powerpoint.insert_image",
+  "application_id": "microsoft.powerpoint",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "PowerPoint for Mac is frontmost with an editable synthetic presentation. The intended slide is selected, menus are closed, and the user has identified a locally available synthetic image.",
+  "user_instruction": "Paano maglagay ng picture sa slide na ito?",
+  "expected_next_action": {
+    "objective": "Guide the user to open the Insert menu in PowerPoint.",
+    "target": {"role": "menu", "semantic_name": "Insert"}
+  },
+  "expected_result": ["The Insert menu becomes visible; the picture has not been inserted yet."],
+  "failure_criteria": [
+    "Uses the desktop Windows This Device path without inspecting the Mac interface.",
+    "Selects a file or performs a click automatically.",
+    "Invents coordinates or claims insertion is already complete.",
+    "Provides a control unsupported by the actual recorded application version."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Documentation-derived case; no screenshot or run was recorded. Record the actual Mac and PowerPoint versions before execution."
+  }
+}

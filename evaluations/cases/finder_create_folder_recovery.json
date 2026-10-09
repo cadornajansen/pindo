@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.finder.create_folder.recovery",
+  "skill_id": "finder.create_folder",
+  "application_id": "apple.finder",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "New Folder is dimmed or unavailable.",
+  "user_instruction": "Create a folder in Finder I am stuck.",
+  "expected_next_action": {
+    "objective": "Apple documents that the current location may not allow folder creation. Ask the user to choose an authorized writable location; do not change permissions or create the folder elsewhere without clarification.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

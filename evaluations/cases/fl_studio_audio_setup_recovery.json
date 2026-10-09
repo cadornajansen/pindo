@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.fl_studio.audio_setup.recovery",
+  "skill_id": "fl_studio.audio_setup",
+  "application_id": "imageline.flstudio",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "No sound reaches the expected output.",
+  "user_instruction": "Configure FL Studio audio on Mac I am stuck.",
+  "expected_next_action": {
+    "objective": "Check device selection, system output, Master routing and mute states before increasing volume.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.illustrator.type_on_path.recovery",
+  "skill_id": "illustrator.type_on_path",
+  "application_id": "adobe.illustrator",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Some letters disappear.",
+  "user_instruction": "Place type on a path I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect overflow and bracket positions; increase available path length or reduce text size deliberately.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

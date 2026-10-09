@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.safari.download.recovery",
+  "skill_id": "safari.download",
+  "application_id": "apple.safari",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The transfer is incomplete or interrupted.",
+  "user_instruction": "Download a file in Safari I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect the download status and available retry control; do not open a partial file.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

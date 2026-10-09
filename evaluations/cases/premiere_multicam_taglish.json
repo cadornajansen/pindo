@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.premiere.multicam.taglish",
+  "skill_id": "premiere.multicam",
+  "application_id": "adobe.premiere",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a 1920x1080 30 fps practice sequence from tester-created local footage. Multicam needs two short views of a visible clap with shared audible clap; do not use unrelated audio. Keep source folders intact, create proxies separately, and move only a duplicate source for the relink case. Use spoken English counting for captions and export a 10-second MP4. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano gumawa ng multicam edit?",
+  "expected_next_action": {
+    "objective": "Select the camera source clips in the Project panel.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Project selection"
+    }
+  },
+  "expected_result": [
+    "The intended sources are selected."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

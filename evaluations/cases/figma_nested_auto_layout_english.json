@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.figma.nested_auto_layout.english",
+  "skill_id": "figma.nested_auto_layout",
+  "application_id": "figma.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create an editable web Design file with two 390x844 frames Home and Details, a card containing label Learn and button Open. Make default and hover button variants, a local color variable, and use practice.png inside an ellipse mask. Use 16-pixel card padding and 8-pixel gap. Prototype Open to Details; export Home as 1x PNG. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Build nested auto layout",
+  "expected_next_action": {
+    "objective": "Select the inner row contents and add auto layout.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Inner selection"
+    }
+  },
+  "expected_result": [
+    "An auto layout frame contains the intended row."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

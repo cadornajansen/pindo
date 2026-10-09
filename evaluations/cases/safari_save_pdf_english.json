@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.safari.save_pdf.english",
+  "skill_id": "safari.save_pdf",
+  "application_id": "apple.safari",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Use a permitted test page with a known downloadable practice file. Record its URL, expected filename and actual browser download setting. Use a new Practice Outputs folder and a distinct practice-page.pdf name. Do not run downloaded executables. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Save a Safari page as PDF",
+  "expected_next_action": {
+    "objective": "Open the intended page and reveal the content to include.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Page preparation"
+    }
+  },
+  "expected_result": [
+    "The required page content is loaded."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

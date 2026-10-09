@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.after_effects.composition.taglish",
+  "skill_id": "after_effects.composition",
+  "application_id": "adobe.aftereffects",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a 1920x1080 30 fps 5-second composition with two shape layers. Animate one position from x=200 to x=1000 between seconds 0 and 2; keep its y fixed. Use an ellipse matte, a null parent and an RGB+Alpha render. For tracking use a tester-created high-contrast moving square clip with a known occlusion interval. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano gumawa ng composition?",
+  "expected_next_action": {
+    "objective": "Open new composition settings.",
+    "target": {
+      "role": "control",
+      "semantic_name": "New Composition"
+    }
+  },
+  "expected_result": [
+    "Composition settings are visible."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.photoshop.smart_filters.english",
+  "skill_id": "photoshop.smart_filters",
+  "application_id": "adobe.photoshop",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Open practice.png and duplicate the source. Use a circle shape and title Practice on separate editable layers. Apply a masked brightness adjustment, a reversible blur Smart Filter and one small retouch correction on a new layer. For hair-edge testing use a tester-owned permitted photo rather than pretending the geometric fixture contains hair. Save a layered practice.psd and transparent PNG copy. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Apply an editable Smart Filter",
+  "expected_next_action": {
+    "objective": "Convert the intended layer to a Smart Object.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Convert to Smart Object"
+    }
+  },
+  "expected_result": [
+    "The layer thumbnail shows the Smart Object indicator."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.illustrator.image_trace.recovery",
+  "skill_id": "illustrator.image_trace",
+  "application_id": "adobe.illustrator",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The expanded result has too many small paths.",
+  "user_instruction": "Trace and refine a raster image I am stuck.",
+  "expected_next_action": {
+    "objective": "Return to the preserved live trace and reduce noise/detail before expanding another copy.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

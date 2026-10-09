@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.capcut.color_correction.taglish",
+  "skill_id": "capcut.color_correction",
+  "application_id": "bytedance.capcut",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a 10-second practice clip from synthetic graphics with spoken counting recorded by the tester. Keep seconds 2-8 for trimming; arrange two copies; overlay a circle at seconds 3-5; animate scale 100 to 120 percent; caption the actual spoken language. For blur use a consenting tester or synthetic moving face and inspect every frame. Export practice-video.mp4. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano ayusin ang color at exposure?",
+  "expected_next_action": {
+    "objective": "Select the clip and open its adjustment controls.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Adjustment controls"
+    }
+  },
+  "expected_result": [
+    "The intended clip adjustment settings are visible."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

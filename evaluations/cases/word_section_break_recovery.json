@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.word.section_break.recovery",
+  "skill_id": "word.section_break",
+  "application_id": "microsoft.word",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The whole document changes orientation.",
+  "user_instruction": "Create an independent document section I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect section boundaries and the Apply to scope in page setup.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

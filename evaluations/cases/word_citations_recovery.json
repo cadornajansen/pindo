@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.word.citations.recovery",
+  "skill_id": "word.citations",
+  "application_id": "microsoft.word",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Required source details are missing.",
+  "user_instruction": "Insert a citation and bibliography I am stuck.",
+  "expected_next_action": {
+    "objective": "Ask for those details or mark them as unknown according to the selected style; never fabricate a citation.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.premiere.proxies.recovery",
+  "skill_id": "premiere.proxies",
+  "application_id": "adobe.premiere",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Proxies exist but are not attached.",
+  "user_instruction": "Create and attach Premiere proxies I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect source matching properties and use the supported attach workflow rather than replacing original media.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

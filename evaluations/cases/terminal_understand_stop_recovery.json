@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.terminal.understand_stop.recovery",
+  "skill_id": "terminal.understand_stop",
+  "application_id": "apple.terminal",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Control-C does not stop the process.",
+  "user_instruction": "Understand and stop a Terminal command I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect whether the process is foreground and explain the next verified option; do not jump to killing unrelated processes.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

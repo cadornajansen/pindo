@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.illustrator.global_colors.recovery",
+  "skill_id": "illustrator.global_colors",
+  "application_id": "adobe.illustrator",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "One object does not update.",
+  "user_instruction": "Use global color swatches I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect whether its fill or stroke uses a local color rather than the global swatch.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.powerpoint.slide_layout.recovery",
+  "skill_id": "powerpoint.slide_layout",
+  "application_id": "microsoft.powerpoint",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Text remains outside placeholders.",
+  "user_instruction": "Change a slide layout I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect whether it is a separate text box; move it into the intended placeholder only after confirming the content.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

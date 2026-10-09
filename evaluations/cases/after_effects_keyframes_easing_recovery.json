@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.after_effects.keyframes_easing.recovery",
+  "skill_id": "after_effects.keyframes_easing",
+  "application_id": "adobe.aftereffects",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Easing has no effect on the intended keys.",
+  "user_instruction": "Animate and ease keyframes I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect keyframe selection and interpolation rather than reapplying it to the layer.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

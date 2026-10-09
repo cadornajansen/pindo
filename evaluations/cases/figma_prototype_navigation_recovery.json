@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.figma.prototype_navigation.recovery",
+  "skill_id": "figma.prototype_navigation",
+  "application_id": "figma.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Clicking does nothing in preview.",
+  "user_instruction": "Connect prototype navigation I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect the selected layer, trigger, overlapping layers and starting flow before recreating the connection.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

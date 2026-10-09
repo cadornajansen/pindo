@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.powerpoint.speaker_notes.taglish",
+  "skill_id": "powerpoint.speaker_notes",
+  "application_id": "microsoft.powerpoint",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a new editable three-slide practice deck: title Practice, content Sales, and closing Thank you. Use practice.png for insertion; a 3-row by 2-column table contains Item/Value, A/10, B/20. Use column chart values A=10 and B=20. Add notes Say hello. Save exports as practice-slides.pdf in a new Practice Outputs folder. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano lagyan ng speaker notes ang slide?",
+  "expected_next_action": {
+    "objective": "Select the target slide.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Slide thumbnail"
+    }
+  },
+  "expected_result": [
+    "The intended slide is active."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

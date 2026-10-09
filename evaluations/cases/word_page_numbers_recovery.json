@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.word.page_numbers.recovery",
+  "skill_id": "word.page_numbers",
+  "application_id": "microsoft.word",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Earlier pages also changed.",
+  "user_instruction": "Set page numbers by section I am stuck.",
+  "expected_next_action": {
+    "objective": "Check which header/footer variant is linked to the previous section before editing again.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

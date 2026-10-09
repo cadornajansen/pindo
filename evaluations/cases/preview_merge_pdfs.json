@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "eval.preview.merge_pdfs",
+  "skill_id": "preview.merge_pdfs",
+  "application_id": "apple.preview",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Two editable synthetic PDFs are open in Preview. The first, with two pages, is the destination and is frontmost with menus closed. The second has one page to append. No duplicate has been made; both originals must remain unchanged. The agreed output name is Combined Lessons.pdf in a new local test folder.",
+  "user_instruction": "Pagsamahin ang dalawang PDF, pero keep the originals please.",
+  "expected_next_action": {
+    "objective": "Explain Preview's autosave behavior and guide the user to open File so they can duplicate the destination before merging.",
+    "target": {"role": "menu", "semantic_name": "File"}
+  },
+  "expected_result": ["The destination's File menu becomes visible with Duplicate available; neither source has been changed."],
+  "failure_criteria": [
+    "Starts merging or editing before duplicating every participating PDF.",
+    "Says Preview edits are unsaved until the user explicitly saves.",
+    "Performs a drag, selects files, or overwrites a document automatically.",
+    "Claims a successful merge without observing three pages in the intended order.",
+    "Invents fixed coordinates or assumes undocumented PDF restrictions can be bypassed."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Documentation-derived case using synthetic document descriptions, not fabricated screenshots. Record the actual macOS and Preview versions before execution."
+  }
+}

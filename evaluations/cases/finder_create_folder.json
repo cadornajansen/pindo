@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "eval.finder.create_folder",
+  "skill_id": "finder.create_folder",
+  "application_id": "apple.finder",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Finder is frontmost at an authorized writable synthetic parent folder. No menus or dialogs are open, and no folder named Lesson Files exists there.",
+  "user_instruction": "Help me create a folder named Lesson Files here.",
+  "expected_next_action": {
+    "objective": "Guide the user to open Finder's File menu; the documented Shift-Command-N shortcut is also an acceptable route if Finder and the parent location are confirmed.",
+    "target": {"role": "menu", "semantic_name": "File"}
+  },
+  "expected_result": ["The File menu becomes visible; if the documented shortcut was used instead, a new folder appears with its name ready to edit."],
+  "failure_criteria": [
+    "Creates the folder automatically or introduces a shell command.",
+    "Renames an unrelated existing folder or uses an unconfirmed parent location.",
+    "Claims completion before a folder with the requested name is observed.",
+    "Invents fixed coordinates or uses Windows Explorer instructions."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Documentation-derived case; Finder and macOS versions must be recorded during hands-on validation. No execution or screenshot exists."
+  }
+}

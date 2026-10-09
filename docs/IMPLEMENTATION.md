@@ -1,5 +1,7 @@
 # Implementation notes
 
+Product boundaries and acceptance criteria live in [product scope](PRODUCT_SCOPE.md) and [PRD](PRD.md). See [data model/ERD](DATA_MODEL.md) for the runtime objects and [validation plan](VALIDATION_PLAN.md) for planned evidence. These docs do not change the code or add persistence.
+
 ## Components and dependencies
 
 | Project | Responsibility | References |
@@ -227,13 +229,35 @@ Dependency references: [yt-dlp release](https://github.com/yt-dlp/yt-dlp/release
 
 Technical risks to measure: unavailable accessibility controls, changing/stale UI snapshots, mixed-DPI monitors, hotkey collisions, foreground activation restrictions, and local-model latency/target accuracy. No benchmark or broad application support is currently established.
 
+### Intended tutoring sequence (not implemented)
+
+```mermaid
+sequenceDiagram
+    actor Teacher
+    participant Desktop
+    participant UIA as UI Automation
+    participant Ollama as Local Ollama
+    Teacher->>Desktop: Ask for the next step
+    Desktop->>UIA: Read controls from remembered external window
+    UIA-->>Desktop: Filtered elements with IDs and bounds
+    Desktop->>Ollama: Instruction and text UI context
+    Ollama-->>Desktop: Target ID and teaching instruction
+    Desktop->>Desktop: Resolve target ID in this request's elements
+    Desktop->>UIA: Revalidate the matched control
+    UIA-->>Desktop: Current target bounds or unavailable
+    Desktop-->>Teacher: Show one step and valid highlight, or explain failure
+    Teacher->>Teacher: Perform the action in PowerPoint
+```
+
+The present scaffold takes the separate mock path described above. The diagram is the intended data flow for the next product slice, not a record of working inference or UI Automation.
+
 Verification commands and manual checks are in [README](../README.md). Restore and build passed with no warnings or errors; all 3 automated tests passed. A Windows 11 build `26200` interactive smoke check passed 22 assertions at 125% display scaling, covering launch/focus, input validation, Submit/Enter, Hide/Escape, the actual global shortcut, collision handling, graceful exit, and immediate hotkey re-registration after exit. The assistant remained usable without Ollama. Screenshot review found no clipping. Windows 10 and mixed-DPI behavior remain untested; product UI Automation, inference, and highlighting remain unimplemented.
 
 References: [Windows UI Automation overview](https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/ui-automation-overview), [RegisterHotKey](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey), [Ollama API](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
 ## Bootstrap file inventory
 
-All 30 repository files below were created for this bootstrap. No existing project files were modified or deleted. Temporary generated `Class1.cs` files in Core/Tools and `UnitTest1.cs` were discarded before the initial commit. Build outputs and IDE caches are excluded by `.gitignore`.
+The original bootstrap contained the 30 files below. This is a historical inventory; subsequent product documents are listed in [the documentation index](README.md). No pre-existing application files were modified or deleted during scaffolding. Temporary generated `Class1.cs` files in Core/Tools and `UnitTest1.cs` were discarded before the initial commit. Build outputs and IDE caches are excluded by `.gitignore`.
 
 | File | Purpose |
 |---|---|

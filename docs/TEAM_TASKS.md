@@ -20,7 +20,7 @@ Open `LocalTutor.slnx` in Rider. Windows and .NET 10 are required for running th
 |---|---|---|
 | 1 — technical lead / `feat/ai-desktop` | `src/LocalTutor.Desktop/**`, `src/LocalTutor.Core/**`, solution/config, shared integration tests | Scoped educator task + contract agreement → desktop tutoring integration |
 | 2 — C# utilities / `feat/local-tools` | `src/LocalTutor.Tools/**` and new tool-specific files in `tests/LocalTutor.Tests/` | Explicitly approved typed tool request → validated result and focused tests |
-| 3 — documentation / `docs/product` | `README.md`, `docs/PRD.md`, `docs/IMPLEMENTATION.md`, `docs/HACKATHON_COMPLIANCE.md`, `docs/TEAM_TASKS.md` | Verified implementation/rules → accurate setup, disclosures, demo/submission instructions |
+| 3 — documentation / `docs/product` | `README.md` and the core documents listed in [the documentation index](README.md); coordinate changes to `docs/research/` with Member 4 | Verified implementation/rules → accurate scope, requirements, data model, validation, setup, and disclosures |
 | 4 — research / `research/educators` | New scoped files such as `docs/research/teacher-scenarios.md` and `docs/research/validation-prompts.md` | Sourced educator evidence → small, testable English/Filipino/Taglish scenarios and expected UI targets |
 
 Only the lead changes Core contracts. Member 2 uses `LocalTutor.Core.Tools` and derives from `LocalTutor.Tools.LocalTool<TInput, TOutput>`; the exact API is in [implementation notes](IMPLEMENTATION.md). Request a contract change before editing shared interfaces. Utilities must not edit the desktop AI pipeline or accept arbitrary shell commands.

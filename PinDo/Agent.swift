@@ -13,6 +13,13 @@ enum Agent {
     static func run(task: String, report: (String) -> Void, confirm: (String) async -> Bool) async throws {
         if await fastPath(task, report: report) { return }
 
+        // A matching lesson from the skills library becomes a known procedure for the model to follow.
+        let skill = Skills.match(task: task)
+        if let skill { report("▸ Using skill: \(skill.title)") }
+        let procedure = skill.map { "\n\n" + Skills.procedure($0) } ?? ""
+        // Menu commands are ranked by word overlap; include the skill's targets so e.g. "Data Validation" is offered.
+        let menuQuery = task + (skill.map { " " + $0.steps.map(\.target.semantic_name).joined(separator: " ") } ?? "")
+
         var history: [String] = []
         var lastProposal = ""
         // Typing or Return over a selection replaces it; only allow that when the task asks to overwrite.
@@ -22,10 +29,10 @@ enum Agent {
             try Task.checkCancellation()
             guard let app = NSWorkspace.shared.frontmostApplication else { break }
             let pid = app.processIdentifier, appName = app.localizedName ?? "App"
-            let snap = await Task.detached { AX.snapshot(pid: pid, appName: appName, task: task) }.value
+            let snap = await Task.detached { AX.snapshot(pid: pid, appName: appName, task: menuQuery) }.value
 
             let started = Date()
-            let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt)
+            let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt + procedure)
             agentLog.info("step \(history.count + 1, privacy: .public) in \(Date().timeIntervalSince(started), format: .fixed(precision: 2), privacy: .public)s: \(action.summary, privacy: .public)")
             try Task.checkCancellation()
             let element = action.id.flatMap { id in snap.candidates.first { $0.id == id } }
@@ -65,8 +72,13 @@ enum Agent {
             case "type":
                 guard let element, let text = action.text, !text.isEmpty else { history.append("type ✗ needs a listed id and text"); continue }
                 report("▸ Typing into “\(element.label)”")
-                if !keepSelection { AX.collapseSelection(element.element) }
-                AX.type(text, into: element.element, pid: pid)
+                if element.label.lowercased() == "name box" { // Excel: replace the address, and it only moves on Return
+                    AX.replace(text, in: element.element)
+                    Keys.post(Keys.parse("return")!, pid: pid)
+                } else {
+                    if !keepSelection { AX.collapseSelection(element.element) }
+                    AX.type(text, into: element.element, pid: pid)
+                }
             case "key":
                 guard let combo = action.combo?.nonEmpty ?? action.text?.nonEmpty, let key = Keys.parse(combo) else {
                     history.append("key ✗ unknown shortcut"); continue
@@ -132,6 +144,38 @@ enum Agent {
     }
 }
 
+// MARK: - Skills library (docs/APPLICATION_SKILLS.md), reused as procedures in doing mode
+
+enum Skills {
+    private static let library = try? SkillLibrary.load()
+
+    /// The lesson for the frontmost app whose keywords best match the request, if any.
+    static func match(task: String) -> TeachingSkill? {
+        guard let library, let target = try? TutorCapture.target() else { return nil }
+        let apps = library.applications.filter { $0.matches(name: target.appName, bundleID: target.bundleID, host: target.host) }
+        let lowered = task.lowercased()
+        let hits = { (skill: TeachingSkill) in skill.match_groups.joined().filter { lowered.contains($0.lowercased()) }.count }
+        return apps.flatMap { library.candidates(applicationID: $0.id, instruction: task) }.max { hits($0) < hits($1) }
+    }
+
+    /// Lessons are written for people ("choose a List rule"); these say how to do it with PinDo's actions.
+    /// Keyed by application id or skill id. Without the dropdown hint the model pressed the Input Message tab.
+    // ponytail: hand-written per skill; move into ApplicationSkills.json (an "agent_hint" per step) as they grow.
+    private static let tips = [
+        "microsoft.excel": "Excel tip: to select cells, type the address (like B2 or A1:A10) into the \"name box\" field.",
+        "excel.dropdown": "Hint: in Data Validation, press the \"Allow:\" popup and choose List; then type the choices, separated by commas, into \"Source:\" and press OK.",
+    ]
+
+    static func procedure(_ skill: TeachingSkill) -> String {
+        let steps = skill.steps.enumerated().map { i, step in
+            "\(i + 1). \(step.objective) [\(step.target.semantic_name)] Done when: \(step.expected_result.joined(separator: " "))"
+        }
+        // The lesson's input questions are left out: with them the model asked even when the task gave every detail.
+        return "Known procedure from PinDo's skills library (trusted; follow it in order, using the controls listed above): \(skill.title)\n"
+            + steps.joined(separator: "\n") + [skill.application_id, skill.id].compactMap { tips[$0] }.map { "\n" + $0 }.joined()
+    }
+}
+
 // MARK: - Accessibility snapshot + actions
 
 /// One control the model can act on. IDs are only valid within one snapshot.
@@ -153,10 +197,10 @@ nonisolated struct Snapshot: Sendable {
 nonisolated enum AX {
     private static let actionableRoles: Set<String> = [
         "AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXMenuButton",
-        "AXTextField", "AXTextArea", "AXComboBox", "AXLink",
+        "AXTextField", "AXTextArea", "AXComboBox", "AXLink", "AXMenuItem", // menu items = an open popup's choices
     ]
     private static let textRoles: Set<String> = ["AXTextField", "AXTextArea", "AXComboBox"]
-    private static let skippedMenus: Set<String> = ["Services", "Open Recent"]
+    private static let skippedMenus: Set<String> = ["Services", "Open Recent", "Writing Tools"] // Writing Tools rewrites text
     private static let stopWords: Set<String> = ["the", "and", "for", "with", "this", "that", "make", "please", "can", "you", "into", "from", "all", "new"]
 
     static func snapshot(pid: pid_t, appName: String, task: String) -> Snapshot {
@@ -178,7 +222,9 @@ nonisolated enum AX {
         // ranked by word overlap with the task so the list stays short.
         let taskWords = words(task).subtracting(stopWords)
         var menuItems: [(path: String, el: AXUIElement)] = []
-        if let bar: AXUIElement = attr(app, kAXMenuBarAttribute), let tops: [AXUIElement] = attr(bar, kAXChildrenAttribute) {
+        // While a dialog is in front its own buttons are what matter; menu commands only distract (it pressed one).
+        let inDialog = window.flatMap { attr($0, kAXSubroleAttribute) as String? }.map { $0.contains("Dialog") } ?? false
+        if !inDialog, let bar: AXUIElement = attr(app, kAXMenuBarAttribute), let tops: [AXUIElement] = attr(bar, kAXChildrenAttribute) {
             for top in tops.dropFirst() { // skip the Apple menu
                 if let title: String = attr(top, kAXTitleAttribute), title != "Window" { collectMenu(top, path: title, depth: 0, into: &menuItems) }
             }
@@ -207,6 +253,11 @@ nonisolated enum AX {
         }
     }
 
+    static func replace(_ text: String, in el: AXUIElement) {
+        AXUIElementSetAttributeValue(el, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFString)
+    }
+
     static func focusedElement(pid: pid_t) -> AXUIElement? {
         attr(AXUIElementCreateApplication(pid), kAXFocusedUIElementAttribute)
     }
@@ -228,16 +279,22 @@ nonisolated enum AX {
         guard let role: String = attr(el, kAXRoleAttribute), actionableRoles.contains(role) else { return nil }
         if let enabled: Bool = attr(el, kAXEnabledAttribute), !enabled { return nil }
         if (attr(el, kAXSubroleAttribute) as String?) == "AXSecureTextField" { return nil } // never touch password fields
+        // Dialog controls are often untitled with a separate label ("Allow:" above a popup): use the linked label.
         let title = [kAXTitleAttribute, kAXDescriptionAttribute, kAXPlaceholderValueAttribute, kAXHelpAttribute]
             .lazy.compactMap { (attr(el, $0) as String?)?.nonEmpty }.first
+            ?? (attr(el, kAXTitleUIElementAttribute) as AXUIElement?).flatMap { label in
+                [kAXValueAttribute, kAXTitleAttribute].lazy.compactMap { (attr(label, $0) as String?)?.nonEmpty }.first
+            }
         let isText = textRoles.contains(role)
-        guard title != nil || isText else { return nil }
+        let choice: String? = role == "AXPopUpButton" ? (attr(el, kAXValueAttribute) as String?)?.nonEmpty : nil
+        guard title != nil || isText || choice != nil else { return nil }
         let kind = role.dropFirst(2).lowercased()
         var line = "\(id) \(kind) \"\(title?.prefix(60) ?? "")\""
         if isText, let value: String = attr(el, kAXValueAttribute) {
             line += " text=\"\(value.prefix(80).replacingOccurrences(of: "\n", with: " "))\""
         }
-        return Candidate(id: id, line: line, label: title ?? (isText ? "text area" : kind), element: el)
+        if let choice { line += " value=\"\(choice.prefix(60))\"" } // e.g. Excel's Allow: "Any value"
+        return Candidate(id: id, line: line, label: title ?? choice ?? (isText ? "text area" : kind), element: el)
     }
 
     private static func collectMenu(_ el: AXUIElement, path: String, depth: Int, into items: inout [(path: String, el: AXUIElement)]) {
@@ -400,6 +457,12 @@ enum Ollama {
         let content = try JSONDecoder().decode(Reply.self, from: data).response
         #if DEBUG
         agentLog.debug("model saw:\n\(user, privacy: .public)\nmodel said: \(content, privacy: .public)")
+        // The log truncates long messages; keep the full exchange for debugging (debug builds only).
+        try? "\(user)\n\nmodel said: \(content)\n\n---\n".data(using: .utf8).map { data in
+            let file = FileManager.default.temporaryDirectory.appending(path: "pindo-steps.log")
+            if let handle = try? FileHandle(forWritingTo: file) { handle.seekToEndOfFile(); handle.write(data); try handle.close() }
+            else { try data.write(to: file) }
+        }
         #endif
         return try JSONDecoder().decode(Action.self, from: Data(content.utf8))
     }

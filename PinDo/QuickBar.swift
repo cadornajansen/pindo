@@ -192,52 +192,130 @@ struct QuickBarView: View {
             }
             bar
         }
-        .padding(20) // room for the shadow inside the transparent panel
+        .padding(.bottom, 72).padding(20) // room for the step pill and shadow inside the transparent panel
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: model.answer.isEmpty)
         .onChange(of: model.focusTick) { focused = true }
     }
 
-    private var bar: some View {
-        HStack(spacing: 14) {
-            Toggle("Teach", isOn: $model.teachMode)
-                .toggleStyle(.button)
-                .disabled(model.isBusy)
-                .onChange(of: model.teachMode) { model.tutor.stop() }
-            Image(systemName: "hand.point.up.left.fill")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(accent)
-                .symbolEffect(.pulse, isActive: model.isBusy)
-            TextField("Ask, or tell me what to do…", text: $model.text)
-                .textFieldStyle(.plain)
-                .font(.system(size: 18))
-                .focused($focused)
-                .onSubmit(model.send)
-                .onExitCommand(perform: onClose)
-            primaryButton
-        }
-        .padding(.horizontal, 18)
-        .frame(height: 62)
-        .background(card)
+    // Figma PINDO › Frame 1 (Group 12 idle bar, Group 11 "Thinking...", Frame 2 step pill).
+    // The mockup is drawn at ~0.43×; everything here is the Figma value × 2.3.
+    private enum Figma {
+        static let fill = Color(red: 217 / 255, green: 217 / 255, blue: 217 / 255).opacity(0.2)
+        static let thinkingBorder = Color(red: 0, green: 140 / 255, blue: 1)        // #008CFF
+        static let stepNumber = Color(red: 243 / 255, green: 1, blue: 70 / 255)     // #F3FF46
+        static let barSize = CGSize(width: 557, height: 145)                       // 242 × 63
+        static let radius: CGFloat = 32                                            // 14
     }
 
-    /// Send ↑, Stop ■ while working, Allow ✓ while waiting for approval.
+    private var thinking: Bool { model.isBusy && !model.awaitingApproval }
+
+    private var bar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Group {
+                if thinking {
+                    HStack(spacing: 12) {                                          // gap 5
+                        Image("FigmaSpinner").resizable().frame(width: 28, height: 28)
+                        title(Text("Thinking..."))
+                    }
+                } else {
+                    TextField("", text: $model.text, prompt: title(Text("What can I help you with?")))
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 23, weight: .semibold, design: .rounded))
+                        .tracking(-0.92)
+                        .foregroundStyle(.white)
+                        .focused($focused)
+                        .onSubmit(model.send)
+                        .onExitCommand(perform: onClose)
+                }
+            }
+            .frame(height: 30)
+            Spacer(minLength: 0)
+            HStack(alignment: .bottom, spacing: 16) {                              // gap 7
+                HStack(spacing: 7) {                                               // gap 3
+                    Image("FigmaSliders").resizable().frame(width: 21, height: 21)  // 9
+                    Text(modelName).font(.system(size: 14, weight: .semibold)).tracking(-0.83)
+                        .foregroundStyle(.white).opacity(0.9)
+                }
+                .padding(.bottom, 9)
+                // Not in the design: Teach mode (PR #1) needs a switch; kept small next to the model chip.
+                Toggle("Teach", isOn: $model.teachMode)
+                    .toggleStyle(.button).controlSize(.mini)
+                    .disabled(model.isBusy)
+                    .onChange(of: model.teachMode) { model.tutor.stop() }
+                    .padding(.bottom, 6)
+                Spacer()
+                Image("FigmaMic").resizable().frame(width: 16, height: 23)          // 7 × 10
+                    .opacity(0.5) // ponytail: voice (plan M2) isn't built; shown per design, inactive
+                    .help("Voice is coming soon")
+                    .padding(.bottom, 9)
+                primaryButton
+            }
+        }
+        .padding(EdgeInsets(top: 41, leading: 28, bottom: 12, trailing: 21))
+        .frame(width: Figma.barSize.width, height: Figma.barSize.height)
+        .background(glass)
+        .overlay(alignment: .bottom) { stepPill.offset(y: 41 + 30) }              // pill 18 below the bar
+    }
+
+    private func title(_ text: Text) -> Text {
+        text.font(.system(size: 23, weight: .semibold, design: .rounded)).tracking(-0.92)  // SF Pro Rounded 10
+            .foregroundColor(.white.opacity(0.9))
+    }
+
+    private var modelName: String { Ollama.model == "qwen3-vl:8b" ? "Qwen 3-VL 8B" : Ollama.model }
+
+    /// "Step N" pill under the bar while PinDo works (one per action). PinDo doesn't plan the total
+    /// up front, so the design's "of 3" is left out.
+    @ViewBuilder private var stepPill: some View {
+        let steps = model.answer.split(separator: "\n").filter { $0.hasPrefix("▸") }.count
+        if thinking, steps > 0 {
+            HStack(spacing: 12) {
+                Image("FigmaClipboard").resizable().frame(width: 16, height: 16)    // 7
+                (Text("Step ") + Text("\(steps)").foregroundColor(Figma.stepNumber))
+                    .font(.system(size: 14, weight: .semibold)).tracking(-0.83).foregroundStyle(.white)
+            }
+            .padding(EdgeInsets(top: 7, leading: 44, bottom: 7, trailing: 46))     // py 3, pl 19, pr 20
+            .background(Capsule().fill(.ultraThinMaterial).overlay(Capsule().fill(Figma.fill)))
+            .transition(.opacity)
+        }
+    }
+
+    /// 20% #D9D9D9 like the design; a blur sits underneath so text stays readable over busy windows
+    /// (the mockup sits on a smooth wallpaper, real desktops don't).
+    private var glass: some View {
+        let shape = RoundedRectangle(cornerRadius: Figma.radius, style: .continuous)
+        return shape.fill(.ultraThinMaterial)
+            .overlay(shape.fill(Figma.fill))
+            .overlay(shape.strokeBorder(Figma.thinkingBorder, lineWidth: 2).opacity(thinking ? 1 : 0))  // 1 px
+            .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
+            .animation(.easeInOut(duration: 0.3), value: thinking)
+    }
+
+    /// White 18 px circle with the four-bar waveform (sends); Stop ■ while working, ✓ to approve.
     private var primaryButton: some View {
-        let stopping = model.isBusy && !model.awaitingApproval
-        let symbol = model.awaitingApproval ? "checkmark" : (stopping ? "stop.fill" : "arrow.up")
         let active = canSend || model.isBusy
         return Button {
-            if stopping { model.cancel() } else { model.send() }
+            if thinking { model.cancel() } else { model.send() }
         } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(active ? accent : Color.secondary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .contentTransition(.symbolEffect(.replace))
+            Group {
+                if model.awaitingApproval {
+                    Image(systemName: "checkmark").font(.system(size: 17, weight: .bold))
+                } else if thinking {
+                    Image(systemName: "stop.fill").font(.system(size: 14, weight: .bold))
+                } else {
+                    HStack(alignment: .center, spacing: 2.1) {                     // bars 1.32 wide, 2.23 apart
+                        let heights: [CGFloat] = [11.5, 18.4, 25.3, 11.5]                // 5, 8, 11, 5
+                        ForEach(heights.indices, id: \.self) { Capsule().frame(width: 3, height: heights[$0]) }
+                    }
+                }
+            }
+            .foregroundStyle(.black)
+            .frame(width: 41, height: 41)                                          // 18
+            .background(Circle().fill(.white.opacity(active ? 1 : 0.6)))
         }
         .buttonStyle(.plain)
         .disabled(!active)
-        .animation(.easeOut(duration: 0.15), value: symbol)
+        .help(thinking ? "Stop" : model.awaitingApproval ? "Allow" : "Send")
     }
 
     private var answerText: some View {

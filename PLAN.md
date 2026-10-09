@@ -21,6 +21,9 @@
 | **Siri on steroids** | Voice commands plus a small allowlist of safe actions (open app/URL, run Shortcut, set reminder, search). |
 | **Cloud assisted** | A router escalates to the cloud for hard reasoning, long context, or premium voice. Off by default, with a visible indicator when it's on. |
 | **Unlimited** | Local means no rate limits and no quota. |
+| **Smooth & fluid** | A pre-built, non-activating frosted panel. Spring animations at 120 fps, < 100 ms to appear. See §4. |
+| **Quick text bar (`Fn + Space`)** | A tap opens a floating text bar over the current window. Holding it is push-to-talk. |
+| **Toolset around the cursor** | Long-press on blank space opens a radial menu of PinDo tools plus the current app's own commands. |
 | **Multi-step + voice** | An agent loop (plan → show step → watch the screen → advance), driven by push-to-talk. |
 
 ---
@@ -111,9 +114,80 @@ Speed is a feature with its own budget. Every milestone has to stay inside it.
 
 ---
 
-## 4. MVP scope
+## 4. Interaction design: smooth, fluid, out of the way
 
-**In:** push-to-talk voice Q&A about the screen, pointing/annotation overlay, multi-step guide
+PinDo floats over whatever you're doing, appears instantly, and gets out of the way just as fast.
+It never steals focus from the app you're asking about.
+
+### One shortcut, two modes: `Fn + Space`
+
+| Gesture | What happens |
+|---|---|
+| **Tap** `Fn + Space` | The **quick bar** slides up over the current window. Type, press ↩, and the answer streams in below it |
+| **Hold** `Fn + Space` | Push-to-talk voice. Release to send |
+| `Esc` / tap again | Dismiss. The bar fades out and focus stays in your app |
+
+**Quick bar:** a single-line, rounded, frosted-glass bar (`NSVisualEffectView`). It has the PinDo mark on the left,
+the placeholder *"What can I help you with?"*, a mode picker (Ask · Point · Guide) and a send button. It appears
+centered near the bottom of the **active window**, not the screen, so it feels attached to what you're doing.
+The answer grows downward from the bar in the same panel, and any `POINT` tags animate the buddy cursor at the
+same time.
+
+**How it's built:**
+- Detect `Fn` with a `CGEventTap`. `Fn` is a modifier flag (`.maskSecondaryFn`) that normal hotkey APIs can't
+  register. The tap also **swallows** the Space keypress so no space gets typed into your app.
+- The panel is a **non-activating `NSPanel`** (`.nonactivatingPanel`, `canBecomeKey = true`). It takes your keystrokes,
+  but the app underneath stays frontmost. That matters because it's the app we screenshot and point at.
+- Gotchas: some keyboards (many external ones) have no `Fn` key, so the shortcut is configurable, with a fallback
+  of `⌥Space`. Also check that *System Settings → Keyboard → "Press 🌐 key to"* doesn't conflict.
+
+### Radial toolset: long-press on empty space
+
+Press and hold the left mouse button on a **blank** part of any window (empty canvas, page margin, desktop) and
+a ring of tools blooms around the cursor. **Flick toward a tool and release** to run it. This is a *marking menu*,
+so it becomes muscle memory: after a week you flick without looking.
+
+```
+                 [ Ask PinDo ]
+      [ app tool ]           [ app tool ]
+   [ Explain this ]   (•)   [ Point me to… ]
+      [ app tool ]           [ app tool ]
+                 [  Voice  ]
+```
+
+- **Inner slots (always the same):** Ask (opens the quick bar), Voice, Explain this area, Point me to….
+- **App slots (change per app):** the current app's most useful commands, read from **its own menu bar via the
+  Accessibility API** and triggered with `AXPress`. This works in nearly every macOS app (Figma, Pages, Xcode,
+  Chrome…) with no per-app integration. Each app's list is precomputed and cached when you switch to that app,
+  so the ring opens instantly. Ranking starts simple (a hand-picked list for the top 10 apps, then most-used
+  commands) and is user-editable later.
+
+**How it's built (the tricky parts):**
+1. **Long-press detection:** a `CGEventTap` sees `leftMouseDown` and starts a ~350 ms timer. Moving more than ~6 px
+   or releasing early cancels it, so normal clicks and drags are never affected.
+2. **"Blank" detection:** `AXUIElementCopyElementAtPosition` checks what's under the cursor. Buttons, links, text
+   fields and other interactive elements → do nothing. Canvas, group, scroll area or window background → show the ring.
+3. **Don't break the app:** the app already received the `mouseDown`. Once the ring opens, PinDo **swallows the drag
+   events** and delivers the `mouseUp` at the **original** position. To the app it looks like a harmless click on empty
+   space, with no marquee selection and no stuck drag.
+4. Apps where long-press already means something important (drawing apps, games) go on a per-app exclusion list.
+
+### What "smooth" means here (and how to keep it)
+
+| Rule | How |
+|---|---|
+| Appears in **< 100 ms**, every time | Create the panels **once at launch** and keep them hidden. Showing one is just an alpha and position change |
+| 120 fps on ProMotion | Core Animation / SwiftUI springs (`.spring(response: 0.3, dampingFraction: 0.8)`), with no layout work during animation |
+| Nothing jumps | The answer panel grows with an animated height. Streamed text appends without reflowing what's already there |
+| Buddy cursor moves like a hand | A curved path with ease-in-out and a small overshoot. It doesn't teleport |
+| Never blocks | All AI, capture and AX work runs off the main thread. The UI only receives results |
+| Respects the user | Honor *Reduce Motion* and *Increase Contrast*, adapt to light/dark, and keep every action keyboard-reachable |
+
+---
+
+## 5. MVP scope
+
+**In:** the `Fn + Space` quick bar (tap) and push-to-talk (hold), the long-press radial toolset, voice and text Q&A about the screen, pointing/annotation overlay, multi-step guide
 mode, local-by-default with opt-in cloud escalation, ~6 safe voice actions, onboarding for
 permissions, and a signed DMG.
 
@@ -126,7 +200,7 @@ core "it shows me where to click" magic.
 
 ---
 
-## 5. Step-by-step milestones
+## 6. Step-by-step milestones
 
 Each milestone has a hard **exit test**. Don't start the next one until the current one passes.
 The estimates assume one developer working part time.
@@ -142,7 +216,8 @@ The estimates assume one developer working part time.
   Write the results into `PLAN.md`.
 
 ### M1 — Eyes: "what am I looking at?" · *week 2*
-- [ ] Global hotkey (for example ⌥Space) captures the display under the cursor with ScreenCaptureKit.
+- [ ] `CGEventTap` for **`Fn + Space`** (fallback `⌥Space`). A tap opens the **quick bar** (a non-activating frosted `NSPanel`, pre-created at launch), and the active window gets captured with ScreenCaptureKit.
+- [ ] The answer streams into the panel below the bar with a spring-animated height. `Esc` dismisses it and focus stays in the user's app.
 - [ ] Capture the **active window** downscaled to ~1024 px and remember the scale factor (Retina is 2×).
 - [ ] Load the model at app launch and keep it warm. Use a fixed system prompt so the prefix cache hits.
 - [ ] Per-stage timing log plus a debug HUD (see §3).
@@ -150,7 +225,7 @@ The estimates assume one developer working part time.
 - **Exit:** asking "what does this error mean?" on 5 different apps gives a correct answer, with first text in **≤ 1.5 s**.
 
 ### M2 — Ears & mouth: voice round-trip · *week 3*
-- [ ] Hold the hotkey to talk and release it to send (push-to-talk, not a wake word).
+- [ ] **Hold** `Fn + Space` to talk and release to send (push-to-talk, not a wake word). A tap still opens the text bar.
 - [ ] **Streaming** on-device STT transcribes while the user talks. The screenshot is taken on hotkey *down*, in parallel.
 - [ ] Play an earcon and glow the buddy within 100 ms of release.
 - [ ] Fast path: rule-matched commands ("open X", "timer for N min") skip the VLM entirely.
@@ -167,7 +242,15 @@ The estimates assume one developer working part time.
 - [ ] Tool-tip style callouts and numbered step badges.
 - **Exit:** on 10 "where do I click to …?" questions, **≥ 8 land on the right element**, with the pointer moving in **≤ 1.5 s**.
 
-### M4 — Multi-step guide mode · *weeks 6–7*
+### M3.5 — Radial toolset · *week 6*
+- [ ] Long-press detection in the event tap (~350 ms hold, < 6 px movement).
+- [ ] Blank-area check via `AXUIElementCopyElementAtPosition` (show the ring only on non-interactive elements).
+- [ ] Ring UI: blooms from the cursor with a spring animation, flick-to-select, release to run, `Esc` to cancel.
+- [ ] Fixed PinDo slots (Ask, Voice, Explain this, Point me to…) plus app slots read from the app's menu bar via AX and triggered with `AXPress`. Cache per app when the user switches to it.
+- [ ] Swallow drags while the ring is open and deliver `mouseUp` at the original point (no stuck drags or marquees). Add a per-app exclusion list.
+- **Exit:** the ring opens in **< 100 ms** in 8 everyday apps, normal clicks and drags behave exactly as before (try 50 of them), and app tools fire correctly.
+
+### M4 — Multi-step guide mode · *weeks 7–8*
 - [ ] "Walk me through X" → model returns a short plan (3–8 steps), shown as a checklist.
 - [ ] Show step N with an annotation and say it out loud.
 - [ ] Detect progress: after each user click (global mouse-up monitor), send a **small crop** and ask a yes/no "is step N done?" (well under 1 s). The full plan comes from one call up front.
@@ -180,18 +263,18 @@ The estimates assume one developer working part time.
   4. Make a new branch in VS Code
   5. Export a Canva design as PDF
 
-### M5 — Cloud assist (opt-in) · *week 8*
+### M5 — Cloud assist (opt-in) · *week 9*
 - [ ] Settings: paste a Claude API key (stored in Keychain), plus an optional cloud voice key.
 - [ ] Router rules, kept simple: escalate when (a) the user says "think hard" / "use cloud", (b) the local model's answer has no valid POINT after a retry, or (c) context exceeds the local limit.
 - [ ] A visible ☁️ indicator whenever data leaves the machine, and a one-click "never use cloud" switch.
 - **Exit:** a hard question (for example "why is this SQL query slow?") visibly escalates, answers better, and never escalates while cloud is off.
 
-### M6 — "Siri on steroids" safe actions · *week 9*
+### M6 — "Siri on steroids" safe actions · *week 10*
 - [ ] Tool calls for an allowlist only: open app, open URL, web search, run a named Apple Shortcut, create a reminder or calendar event, copy text to the clipboard.
 - [ ] Any action is **announced and confirmed** ("Opening Canva. OK?") until the user trusts it.
 - **Exit:** 10 voice commands, 10 correct actions, zero unintended side effects.
 
-### M7 — Polish, onboarding, ship · *week 10*
+### M7 — Polish, onboarding, ship · *week 11*
 - [ ] First-run onboarding that walks through the Screen Recording, Microphone and Accessibility permissions (PinDo should point at the toggles itself 😉).
 - [ ] Settings for hotkey, voice, skill level ("new to computers" ↔ "power user") and model.
 - [ ] Download the model on first run with progress, and check free disk/RAM before loading.
@@ -201,7 +284,7 @@ The estimates assume one developer working part time.
 
 ---
 
-## 6. Risks & mitigations
+## 7. Risks & mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -209,12 +292,14 @@ The estimates assume one developer working part time.
 | Latency feels slow | See §3: fewer image tokens, warm model, prefix cache, `POINT`-first output, streaming STT/TTS, fast path. Run the regression script on every change |
 | RAM pressure on 16 GB Macs | Ship a smaller default model (3–4B) for under 24 GB, and unload the model after it's been idle |
 | Privacy concerns | Local by default, a cloud indicator, no telemetry by default, and screenshots never written to disk |
+| Long-press hijacks normal drags | Trigger only on blank areas (AX check), cancel on > 6 px movement, release the mouse at the original point, per-app exclusion list |
+| No `Fn` key on external keyboards | Configurable shortcut, `⌥Space` fallback |
 | macOS permission friction | Guided onboarding, plus detecting and re-prompting for revoked permissions |
 | Model churn | The model is a setting. Re-run the M0 bake-off script whenever a new model drops |
 
 ---
 
-## 7. Success metrics for the MVP
+## 8. Success metrics for the MVP
 
 - Voice → first spoken word ≤ **2 s** locally, pointer ≤ **1.5 s**, fast-path commands < **0.5 s**
 - Pointing accuracy ≥ **80%** on the test set (with AX snap)
@@ -222,7 +307,7 @@ The estimates assume one developer working part time.
 - **$0** marginal cost per query in local mode
 - 5 non-technical testers each finish one real task they couldn't do before
 
-## 8. Open questions
+## 9. Open questions
 
 1. Pricing: free + open source, or a one-time license (like ~$29)? The BYOK cloud keeps either option viable.
 2. Should the MVP bundle the model runtime (mlx-swift) or require LM Studio/Ollama? Recommendation: require it for development builds and bundle it for the first public release.

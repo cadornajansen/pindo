@@ -6,7 +6,7 @@
 |---|---|---|
 | `LocalTutor.Desktop` | WPF command palette, native shortcut, foreground context, mock tutor, Ollama boundary | Core |
 | `LocalTutor.Core` | Serializable tutoring models and shared contracts | No application projects |
-| `LocalTutor.Tools` | Typed, validated local utility base class | Core |
+| `LocalTutor.Tools` | Typed utility base class, approved-file inspection and image conversion | Core |
 | `LocalTutor.Tests` | Focused tests for shared contracts and pure tool logic | Core, Tools |
 
 Desktop targets `net10.0-windows`; Core, Tools, and Tests target `net10.0` because their shared logic does not require Windows. Add a Desktop → Tools reference only when the desktop needs a real utility. No database, web server, or additional framework is required.
@@ -67,6 +67,86 @@ public interface ILocalTool<in TInput, TOutput> where TInput : ToolInput
 Implementation base: **`LocalTutor.Tools.LocalTool<TInput, TOutput>`**, constrained to `TInput : ToolInput`. Derive from it, define `Id` and `Description`, and implement `ExecuteValidatedAsync(TInput input, CancellationToken cancellationToken)`. Its public `ExecuteAsync` checks cancellation and validation before reaching your implementation. Validation returns all input errors; a nonempty list prevents execution.
 
 Use a small typed input record and output record for each approved utility. Test invalid input, success, and cancellation in a tool-specific test file. A future caller must explicitly allow approved tool IDs and obtain appropriate confirmation before execution; the generic contract alone is not an authorization system. Do not add a string-based shell-command tool or a plugin discovery framework.
+
+## File inspection and image conversion
+
+Selected slice completed locally on `tool_calling_functions`: **`file.inspect` and `file.convert_image`**. The IDs match the planning directory's `TOOL_FUNCTIONS_INDEX.txt`. Both classes derive from the existing `LocalTool<TInput, TOutput>`; Core, Desktop, and project configuration are not part of this change. No registry exists and neither tool is callable through the assistant UI/model yet. The lead must wire an allowlist and effect-specific consent before any future integration; H guidance remains without tool execution.
+
+### Typed arguments and results
+
+Namespace: `LocalTutor.Tools.FileInspectionAndConversion`. Unknown JSON properties and missing required arguments are rejected. Validation checks undefined enum values, paths, dimensions, output extension, transparency, and quality before execution. `ToolResult<T>` returns success/value or a generic reason in `Error`, without native diagnostics or private input paths. Cancellation follows the existing contract by throwing `OperationCanceledException`; it is not reported as success.
+
+| ID / class | Arguments | Result |
+|---|---|---|
+| `file.inspect` / `InspectFileTool` | `InspectFileInput`: required `InputPath` | `InspectedFile`: `DetectedType`, `Extension`, `SizeBytes`, nullable `Width`, `Height`, `PageCount`, `DurationSeconds`, `Verification` (`Decoded` or `SignatureOnly`), `SupportedNextActions`, `Warnings`. No input path/name, text, EXIF values, previews, or embedded content. |
+| `file.convert_image` / `ConvertImageTool` | `ConvertImageInput`: required `InputPath`, `OutputPath`, `Format` (`Png`, `Jpeg`, `WebP`); optional `Transparency` (`Preserve` default or `FlattenWhite`), paired `MaxWidth`/`MaxHeight` (1–8192), `Quality` (1–100 for JPEG/WebP, default 85; not accepted for PNG) | `ConvertedImage`: actual `OutputPath`, `Format`, `SizeBytes`, `Width`, `Height`, `HasAlphaChannel`, `ColorHandling`, `Warnings`. Metadata and readability checked by decoding the actual encoded output. |
+
+`FileAccessScope` and `ImageMagickCodec` are **trusted caller configuration**, separate from serializable model arguments. Construct a fresh scope after the user selects an existing workspace and approves the exact input and new output paths. Merely accepting a path in model output grants no permission. Never deserialize these configuration objects from model output. The caller owns approval freshness and cancellation, and must show the requested effect before dispatch.
+
+`file.inspect` reads at most 32 signature bytes for other regular files. PDF, ZIP (Office subtype unverified), WAV, ISO base media, EBML, and ID3-tagged containers receive explicitly unverified signature labels; arbitrary files receive `Unknown`. Page count and duration remain null. Images with configured codecs are fully decoded for dimensions, bounded by the limits below. Extension/content mismatch, corrupt data, oversized images, and animation are rejected. Only decodable supported color spaces without ICC profiles offer `file.convert_image` as a next action. Without a configured codec, image inspection returns signature metadata with a warning and no available conversion action.
+
+### Supported image matrix and bounds
+
+| Source → output | PNG | JPEG | WebP |
+|---|---|---|---|
+| PNG | Tested | Tested | Tested |
+| JPEG (`.jpg`/`.jpeg`) | Tested | Tested | Tested |
+| WebP | Tested | Tested | Tested |
+
+Only single still images are supported. APNG/WebP animation chunks and decoded multiple frames are rejected. Input limit: 20 MiB; output limit: 32 MiB; dimensions: at most 8192 on each side and 4 million decoded pixels. Resize fits the requested box, retains aspect ratio, and never enlarges. Native calls have a 15-second deadline each (up to three calls per conversion), one thread, a 128 MiB pixel-cache budget, and disabled mapped/disk pixel caches. Native process/runtime overhead is additional; these limits are not a hard OS memory quota. Standard output is bounded and native error text is discarded.
+
+JPEG requires explicit `FlattenWhite` even for an opaque source. PNG/WebP can preserve alpha or flatten onto white. WebP alpha uses quality 100 independently of its lossy RGB quality. EXIF orientation is applied; conversion outputs 8-bit sRGB and removes metadata. RGB/sRGB/gray inputs are accepted; embedded ICC profiles and CMYK/other color spaces are rejected for conversion. This is not a color-managed print workflow. No fidelity, byte-for-byte pixel identity, visual-quality, or file-size-reduction guarantee is made. JPEG/WebP encoding and resizing can lose detail. Review the result.
+
+Approvals are restricted to exact paths inside the selected workspace. Traversal, ambiguous paths, network/device/alternate-stream paths, filesystem-root workspaces, protected system locations, symbolic links, and reparse points are rejected. Output directories must exist; no source replacement, existing-file overwrite, batch conversion, or directory creation is exposed. Paths are rechecked before saving/publishing; a temporary sibling file is renamed with overwrite disabled after successful encoding/readability verification. Partial outputs are removed on failure/cancellation. The rename is the commit point: cancellation after it cannot undo the saved image.
+
+The native worker receives only fixed arguments and image bytes, never a user filename or arbitrary command string. ImageMagick may spool stdin; each call uses an isolated OS temporary directory, deleted after worker exit including cancellation/timeout. Unix scratch permissions are owner-only; Windows uses the user's temporary-directory ACL. `CleanupFailed` reports inability to remove native scratch. This is ordinary cleanup, not secure erasure or crash recovery. No telemetry or file-content logging is added.
+
+These managed path checks are not a race-free OS sandbox. Use ordinary local files in a workspace whose directories cannot be concurrently replaced by an untrusted process. Approval expiry/revocation, hostile directory races, special Unix files/network mounts, Windows junctions and ACLs, and crash recovery require integration/device hardening before wider exposure.
+
+### Local dependency setup and teacher handoff
+
+ImageMagick is the only directly invoked dependency. Tests used installed **6.9.12-98 Q16 x64** with libpng 1.6.43, libjpeg-turbo 2.1.5, libwebp 1.3.2 and zlib 1.3. Installed package copyright/license records were inspected locally; no download or cloud conversion was used. The separate planning inventory `Tool_Calling_Prompts/OPEN_SOURCE_TOOLS_USED.txt` records versions, official URLs, licenses, packaging and attribution obligations for the selected native dependency and codec delegates. No NuGet dependency was added. No native binary is bundled; a Windows binary/codec/policy/security-maintenance choice and its bundled licenses remain to be verified on the actual device. ImageMagick 7's `magick.exe` path is accepted as host configuration, but only the stated version 6 build has been tested.
+
+Configure the absolute installed `magick.exe` (or ImageMagick 6 `convert.exe`) path in the trusted caller; do not rely on PATH or Windows' unrelated `convert.exe`. Missing/unstartable dependencies return `MissingDependency`, unavailable codecs/policy/corrupt data return `CodecFailed`, and deadlines return `TimedOut`. No installation or dependency download is automatic. Header-only `InspectFileTool` can be used without ImageMagick.
+
+Example after the teacher has approved one water-cycle illustration and the exact new name:
+
+```csharp
+string workspace = @"C:\Classroom\LessonAssets";
+var scope = new FileAccessScope(workspace,
+    approvedInputs: ["water-cycle.webp"],
+    approvedOutputs: ["water-cycle-slides.png"]);
+var codec = new ImageMagickCodec(trustedInstalledImageMagickPath);
+var inspected = await new InspectFileTool(scope, codec)
+    .ExecuteAsync(new InspectFileInput("water-cycle.webp"), cancellationToken);
+// Present the requested new file/format to the user and confirm before dispatch.
+var converted = await new ConvertImageTool(scope, codec, progress)
+    .ExecuteAsync(new ConvertImageInput("water-cycle.webp", "water-cycle-slides.png",
+        ImageFormat.Png, TransparencyMode.Preserve, MaxWidth: 1600, MaxHeight: 900), cancellationToken);
+```
+
+Check `Success` and use the returned output path. The teacher reviews the new PNG and inserts it manually through the presentation app's file picker. This demonstrates file preparation only; PowerPoint insertion/acceptance and the main tutoring flow are not verified by these tests.
+
+### Planned functions: no executable implementation or advertised availability
+
+| Exact ID | Proposed bounded argument/result shape for coordination | Remaining work |
+|---|---|---|
+| `file.convert_document` | Required approved `InputPath`, new approved `OutputPath` ending `.pdf`; input content/extension allowlist DOCX/PPTX/XLSX. No converter options from the model. Result: actual PDF path, byte size, verified page count and fidelity/font/layout warnings. | Installed LibreOffice remains a candidate, not an adopted dependency. Requires isolated local conversion, missing-dependency/font handling, process/output/resource limits, real PDF readability and Office fixture checks. No PDF-to-editable-Office conversion promise. |
+| `file.convert_media` | Required approved `InputPath`, new approved `OutputPath`, target enum (`Mp4`, `WebM`, `Mp3`, `Wav`), preset enum (`Small`, `Balanced`, `HighQuality`); caller cancellation and progress. Result: actual path, format, size, verified duration/streams and warnings. No raw FFmpeg flags. | FFmpeg remains a candidate, not an adopted dependency. Video MP4/WebM and audio MP3/WAV matrices/presets are proposals, untested and unavailable; require explicit codec/build licenses, stream selection, metadata sanitization, fixed flags, limits and real decoded output checks. |
+
+### Verification and changed C# files
+
+Linux Mint 22.3, .NET SDK 10.0.112: all **24 focused utility cases / 27 repository tests** pass with real local codecs. The Tools project build with `--no-restore -warnaserror` passes with zero warnings/errors; `git diff --check` passes. Coverage includes the nine source/output pairs with raw RGBA readability, dimensions/resize, alpha preservation and JPEG white compositing, metadata removal/privacy, malformed/truncated/mismatched/animated/oversized files, ICC-marker/CMYK rejection, missing dependencies, strict JSON/arguments, approvals/traversal, existing/source/late output conflicts, symlinks introduced before saving, cancellation, native timeout/process exit and scratch cleanup. The deliberately incomplete ICC fixture tests rejection; it does not verify profile fidelity. POSIX worker/symlink fixtures do not execute on Windows; tests on Windows require the native dependency and separate junction/process-tree checks. No WPF smoke check, actual presentation-tool acceptance, native Windows run or model integration was performed in this slice.
+
+```powershell
+# Windows test configuration (must point to an already installed trusted binary):
+$env:LOCAL_TUTOR_IMAGEMAGICK = 'C:\path\to\ImageMagick\magick.exe'
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore --filter FullyQualifiedName~FileInspectionAndConversion
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore
+dotnet build src/LocalTutor.Tools/LocalTutor.Tools.csproj --no-restore -warnaserror
+```
+
+Tests use synthetic fixtures and temporary directories, with no external transfer. Existing package restore assets were used offline. New source files (all under `src/LocalTutor.Tools/FileInspectionAndConversion/`): `FileToolContracts.cs`, `FileAccessScope.cs`, `ImageContent.cs`, `ImageMagickCodec.cs`, `InspectFileTool.cs`, `ConvertImageTool.cs`. New focused test file: `tests/LocalTutor.Tests/FileInspectionAndConversion/ImageToolTests.cs`. Documentation updates: this file and the existing root README. The unrelated pre-existing Desktop project edit is excluded. Before commit, the handoff and inventory must be current and both author/committer must be the user-confirmed identity; this prompt permits no push or publication.
 
 ## Ollama boundary
 

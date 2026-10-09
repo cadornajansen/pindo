@@ -8,10 +8,10 @@ This is the **bootstrap milestone** for AppBuildersPH Hackathon 2026. The organi
 
 - Four-project .NET 10 solution with a compact, dark WPF assistant.
 - Text input, Submit/Enter, a clearly labeled mock response, and native `Ctrl + Space` registration with collision reporting and cleanup.
-- Shared tutoring contracts and validated, typed utility contracts; no utility implementations.
+- Shared tutoring contracts and validated, typed utilities: `file.inspect` and `file.convert_image` are implemented and tested as library classes, with exact-path approvals.
 - Central Ollama settings and an asynchronous availability-check boundary. Ollama is optional for launching this scaffold.
 
-**Not implemented:** model inference, Windows UI Automation capture, highlighting, real tutoring, voice, or file-conversion tools. No offline tutoring, privacy guarantee, model accuracy, or performance benchmark is claimed. An Ollama availability result only confirms that its API responded.
+**Not implemented:** model inference, Windows UI Automation capture, highlighting, real tutoring, voice, desktop/model tool registration, `file.convert_document`, or `file.convert_media`. No offline tutoring, privacy guarantee, model accuracy, or performance benchmark is claimed. An Ollama availability result only confirms that its API responded.
 
 ## Requirements and setup
 
@@ -19,6 +19,7 @@ This is the **bootstrap milestone** for AppBuildersPH Hackathon 2026. The organi
 - .NET 10 SDK. `global.json` selects a stable SDK from `10.0.100` onward within .NET 10 using `latestFeature`; the bootstrap machine has `10.0.302` on Windows 11.
 - Git; JetBrains Rider with .NET 10 support, or the .NET CLI.
 - Ollama is needed only for the next inference milestone; it was not installed on the bootstrap machine and no model was downloaded.
+- Optional image utilities require a separately installed local ImageMagick with PNG/JPEG/WebP codecs. The trusted caller supplies its absolute executable path to `ImageMagickCodec`; no binary is bundled or downloaded automatically. Linux tests used ImageMagick 6.9.12-98 Q16. Windows installation, codec policy, process cleanup, and the presentation application still need device validation. See [utility setup and limits](docs/IMPLEMENTATION.md#file-inspection-and-image-conversion).
 
 Public repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
 
@@ -60,7 +61,7 @@ The interactive smoke check ran on Windows 11 build `26200` at 125% display scal
 ```text
 src/LocalTutor.Desktop/   WPF window, native hotkey, mock tutor, Ollama boundary
 src/LocalTutor.Core/      UI snapshots, tutor DTOs, service and tool contracts
-src/LocalTutor.Tools/     Validated utility base class; Member 2's implementation area
+src/LocalTutor.Tools/     Validated utility base class and file inspection/image conversion
 tests/LocalTutor.Tests/   Lightweight tests for contracts and pure logic
 docs/                    Product, architecture, compliance, team ownership
 LocalTutor.slnx           Solution containing the four projects
@@ -72,9 +73,17 @@ Ollama defaults live in `src/LocalTutor.Desktop/Services/OllamaSettings.cs`: bas
 
 The intended flow is instruction + filtered UI Automation snapshot → local Ollama inference → validated target ID + teaching instruction → screen highlight. Only the contracts and mock submission path exist today. Third-party online applications can still require internet even when our future inference is local.
 
+## Classroom image example
+
+The selected utility slice prepares one local water-cycle illustration for a slide: approve `water-cycle.webp` and the new name `water-cycle-slides.png`, inspect the source, then request PNG conversion with a maximum 1600 × 900 box and preserved transparency. The aspect ratio is retained and small images are not enlarged. Review the new image and insert it manually using the presentation application's file picker; acceptance by the installed PowerPoint version is not yet verified. These library tools are not wired into the assistant UI or a model registry. [Implementation notes](docs/IMPLEMENTATION.md#file-inspection-and-image-conversion) include the C# call and test commands.
+
+Verification on Linux (.NET SDK 10.0.112): 24 focused utility cases and all 27 repository tests pass, including all nine PNG/JPEG/WebP conversion pairs with actual pixel decoding. This does not establish Windows desktop or native converter compatibility. Documents and media conversion remain planned.
+
 ## Team workflow
 
 Use one shared repository and direct collaborator access. Create your assigned branch from current `main`, make a focused commit, push your branch, and request a pull request review. Do not force-push `main`. Branch protection is an intended workflow; it is not claimed to be configured.
+
+The current utility prompt overrides that general workflow: work on local `tool_calling_functions`, commit only its completed work with the user-confirmed author/committer, and do not push, publish, deploy, open a PR, or transfer project data without specific user approval.
 
 | Member | Branch | Primary area |
 |---|---|---|

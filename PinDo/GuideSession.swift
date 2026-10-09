@@ -91,7 +91,7 @@ final class GuideSession {
                         report?("That step doesn't seem to have changed anything yet. Try “\(target.label)” again, or press Check again.")
                     } else {
                         step += 1
-                        report?("Step \(step): \(target.instruction)")
+                        report?(target.instruction)
                     }
                     guard step <= Self.maxSteps else { return finish("Stopped after \(Self.maxSteps) steps. Tell me what's left.") }
                     lastLabel = target.label

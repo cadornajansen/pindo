@@ -21,23 +21,31 @@ final class QuickBar {
     }
 
     func checkAgain() { model.guide.checkAgain() }
+
+    #if DEBUG
+    /// Debug: renders the panel's views (layout and text; system glass needs the window server) to a PNG.
+    func snapshot(to url: URL) {
+        guard let view = panel.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+    }
+    #endif
     func cancel() { model.cancel() }
 
     func toggle() { isShown ? hide() : show() }
 
     func submit(_ text: String, mode: QuickBarModel.Mode? = nil) {
         show()
-        if let mode { model.mode = mode }
-        model.text = text
-        model.send()
+        if let mode { model.run(text, as: mode) } else { model.text = text; model.send() }
     }
 
     func show() {
         guard !isShown else { return }
         isShown = true
         let origin = Self.anchorOrigin(panelSize: panel.frame.size)
+        let rise: CGFloat = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 8 // fade in while moving up
         panel.alphaValue = 0
-        panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - 10))
+        panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - rise))
         panel.makeKeyAndOrderFront(nil)
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.18
@@ -52,9 +60,12 @@ final class QuickBar {
         guard isShown else { return }
         isShown = false
         model.cancel()
+        let fall: CGFloat = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 8 // fade out while moving down
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.12
+            ctx.duration = 0.14
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
+            panel.animator().setFrameOrigin(NSPoint(x: panel.frame.minX, y: panel.frame.minY - fall))
         }, completionHandler: { [panel] in
             // A quick re-open during the fade-out must not be hidden by this callback.
             MainActor.assumeIsolated { if panel.alphaValue == 0 { panel.orderOut(nil) } }
@@ -107,7 +118,9 @@ final class QuickBarPanel: NSPanel {
         isOpaque = false
         hasShadow = false // SwiftUI draws the shadow; window shadows lag behind content changes
         hidesOnDeactivate = false
-        contentView = NSHostingView(rootView: rootView)
+        let host = NSHostingView(rootView: rootView)
+        host.sizingOptions = [] // keep the panel's size fixed; it's positioned once per show
+        contentView = host
     }
 
     override var canBecomeKey: Bool { true }
@@ -125,36 +138,78 @@ final class QuickBarModel {
     var isBusy = false
     var awaitingApproval = false
     var focusTick = 0
+    /// Internal only: chosen per request by IntentPolicy (or by the user when it asks). Never shown as a switch.
     enum Mode: String, CaseIterable { case guide = "Guide", act = "Do", teach = "Teach" }
-    var mode: Mode = .guide // Guide: Pindo points, you click. Do: Pindo acts (with confirmations). Teach: lessons.
-    var teachMode: Bool { mode == .teach }
+    private(set) var mode: Mode = .act
+    /// A request the policy couldn't place: the UI asks "Show me, or do it for you?".
+    private(set) var pendingChoice: String?
+    var teachMode: Bool { mode == .teach && tutor.active }
     let tutor = TutorSession()
     let guide = GuideSession()
     private var task: Task<Void, Never>?
     private var approval: CheckedContinuation<Bool, Never>?
 
+    /// What the panel shows, derived from the real backend state (never simulated).
+    enum Phase: Equatable { case composing, working, approval, choosing }
+    var phase: Phase {
+        if awaitingApproval { return .approval }
+        if isBusy || guide.working { return .working }
+        if pendingChoice != nil { return .choosing }
+        return .composing
+    }
+
+    /// Latest real progress for the slim working row.
+    var status: String {
+        if guide.working { return "Looking at the screen…" }
+        if let step = answer.split(separator: "\n").last(where: { $0.hasPrefix("▸") }) { return String(step.dropFirst(2)) }
+        return "Thinking…"
+    }
+
     func send() {
         if awaitingApproval { return resolveApproval(true) } // ↩ = allow
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty, !isBusy else { return }
+        guard !prompt.isEmpty, phase == .composing else { return } // no duplicate submissions
         text = ""
+        switch IntentPolicy.decide(prompt) {
+        case .guide: run(prompt, as: .guide)
+        case .act: run(prompt, as: .act)
+        case .teach: run(prompt, as: .teach)
+        case .clarify:
+            answer = ""
+            pendingChoice = prompt
+        }
+    }
+
+    /// The user's answer to "Show me, or do it for you?".
+    func choose(_ mode: Mode) {
+        guard let prompt = pendingChoice else { return }
+        pendingChoice = nil
+        run(prompt, as: mode)
+    }
+
+    func run(_ prompt: String, as mode: Mode) {
+        cancel()
+        self.mode = mode
         answer = ""
-        if teachMode { guide.stop(); tutor.start(prompt); return }
-        tutor.stop()
-        if mode == .guide { guide.start(prompt) { [weak self] in self?.say($0) }; return }
-        guide.stop()
-        isBusy = true
-        task = Task {
-            do {
-                try await Agent.run(task: prompt, report: { self.say($0) }, confirm: { await self.askApproval($0) })
-            } catch is CancellationError {
-            } catch {
-                if !Task.isCancelled {
-                    say(error is Ollama.ModelError ? error.localizedDescription
-                        : "Couldn't reach the local model. Is Ollama running?\n(\(error.localizedDescription))")
+        switch mode {
+        case .teach:
+            tutor.start(prompt)
+        case .guide:
+            guide.start(prompt) { [weak self] in self?.answer = $0 } // the card shows the current step only
+        case .act:
+            isBusy = true
+            task = Task {
+                do {
+                    try await Agent.run(task: prompt, report: { self.say($0) }, confirm: { await self.askApproval($0) })
+                } catch is CancellationError {
+                } catch {
+                    if !Task.isCancelled {
+                        say(error is Ollama.ModelError ? error.localizedDescription
+                            : "Couldn't reach the local model. Is Ollama running?\n(\(error.localizedDescription))")
+                    }
                 }
+                isBusy = false
             }
-            isBusy = false
         }
     }
 
@@ -164,15 +219,18 @@ final class QuickBarModel {
         task?.cancel()
         task = nil
         resolveApproval(false)
+        pendingChoice = nil
         isBusy = false
     }
+
+    func dismissResult() { answer = "" }
 
     private func say(_ line: String) {
         answer = answer.isEmpty ? line : answer + "\n" + line
     }
 
     private func askApproval(_ question: String) async -> Bool {
-        say("⚠︎ \(question) Press ↩ to allow, or Esc to stop.")
+        say("⚠︎ \(question)")
         awaitingApproval = true
         return await withCheckedContinuation { approval = $0 }
     }
@@ -184,34 +242,51 @@ final class QuickBarModel {
     }
 }
 
+/// Colors from the Figma file that the pointer overlay still uses.
 enum Figma {
-    static let fill = Color(red: 217 / 255, green: 217 / 255, blue: 217 / 255).opacity(0.2)
-    static let thinkingBorder = Color(red: 0, green: 140 / 255, blue: 1)        // #008CFF
     static let stepNumber = Color(red: 243 / 255, green: 1, blue: 70 / 255)     // #F3FF46
-    static let barSize = CGSize(width: 557, height: 145)                       // 242 × 63
-    static let radius: CGFloat = 32                                            // 14
     static let pointer = Color(red: 227 / 255, green: 1, blue: 69 / 255)       // #E3FF45 (Polygon 1)
 }
 
-/// Glassmorphism per the Figma frame: 20% #D9D9D9 over a blur, a light edge, and a soft shadow.
-/// macOS 26 renders the blur with Liquid Glass; older systems use a material.
+/// Native glass: Liquid Glass on macOS 26, a regular material before. A hairline edge and a light shadow
+/// separate it from the desktop. Text on it uses system label colors, so it stays legible on light and dark.
 struct GlassBackground<S: InsettableShape>: View {
     let shape: S
-    var glow: Color? = nil // Thinking state: 1 px #008CFF edge, glowing
 
     var body: some View {
-        ZStack {
+        Group {
             if #available(macOS 26.0, *) {
                 Color.clear.glassEffect(.regular, in: shape)
             } else {
-                shape.fill(.ultraThinMaterial)
+                shape.fill(.regularMaterial)
             }
-            shape.fill(Figma.fill)
-            shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0.08)],
-                                              startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
-            if let glow { shape.strokeBorder(glow, lineWidth: 2) }
         }
-        .shadow(color: glow?.opacity(0.6) ?? .black.opacity(0.2), radius: glow == nil ? 18 : 14, y: glow == nil ? 8 : 0)
+        .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.06)],
+                                                   startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
+    }
+}
+
+private struct ContentHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Small borderless control with hover and press feedback.
+private struct QuietButtonStyle: ButtonStyle {
+    var prominent = false
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .padding(.horizontal, 11).padding(.vertical, 5)
+            .background(Capsule().fill(prominent ? Color.accentColor : Color.primary.opacity(hovering ? 0.14 : 0.08)))
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
 
@@ -219,168 +294,185 @@ struct QuickBarView: View {
     @Bindable var model: QuickBarModel
     let onClose: () -> Void
     @FocusState private var focused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var teachHeight: CGFloat = 120
 
-    private let accent = Color(red: 0.33, green: 0.56, blue: 1.0)
-    private var canSend: Bool { model.awaitingApproval || (!model.text.trimmingCharacters(in: .whitespaces).isEmpty && !model.isBusy) }
+    private static let radius: CGFloat = 14
+    private var maxWidth: CGFloat { 640 }
+    /// Grows with what's typed (not animated per keystroke), within 460…640 pt.
+    private var composerWidth: CGFloat { min(maxWidth, max(460, 250 + CGFloat(model.text.count) * 7.5)) }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Spacer(minLength: 0)
             if model.teachMode {
-                ScrollView { TutorView(session: model.tutor) }
-                    .frame(maxHeight: 300)
-                    .background(card)
-            }
-            if !model.answer.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    ViewThatFits(in: .vertical) {
-                        answerText
-                        ScrollView { answerText }
-                    }
-                    .frame(maxHeight: 320)
-                    if model.guide.active && !model.guide.working {
-                        Button("Check again") { model.guide.checkAgain() }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                            .padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(GlassBackground(shape: Capsule()))
-                            .padding([.horizontal, .bottom], 16)
-                    }
+                // Sized to the lesson's content (scrolls past 260 pt) instead of always stretching to the maximum.
+                ScrollView {
+                    TutorView(session: model.tutor)
+                        .background(GeometryReader { g in Color.clear.preference(key: ContentHeight.self, value: g.size.height) })
                 }
-                .background(card)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .frame(height: min(260, teachHeight))
+                .onPreferenceChange(ContentHeight.self) { teachHeight = $0 }
+                .frame(width: composerWidth)
+                    .background(GlassBackground(shape: RoundedRectangle(cornerRadius: Self.radius, style: .continuous)))
+                    .transition(cardTransition)
             }
-            bar
+            if let card = cardContent {
+                card.transition(cardTransition)
+            }
+            ZStack {
+                if model.phase == .working {
+                    workingRow.transition(workingTransition)
+                } else if model.phase == .composing {
+                    composer.transition(composerTransition)
+                }
+            }
+            .frame(height: 48)
         }
-        .padding(.bottom, 72).padding(20) // room for the step pill and shadow inside the transparent panel
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: model.answer.isEmpty)
+        .padding(.horizontal, 20).padding(.vertical, 18) // room for the shadow inside the transparent panel
+        .frame(width: 680, height: 460, alignment: .bottom) // the panel never resizes; content anchors to its bottom
+        .animation(motion, value: model.phase)
+        .animation(motion, value: model.answer.isEmpty)
+        .animation(motion, value: model.guide.active)
         .onChange(of: model.focusTick) { focused = true }
+        .onChange(of: model.phase) { if model.phase == .composing { focused = true } }
     }
 
-    // Figma PINDO › Frame 1 (Group 12 idle bar, Group 11 "Thinking...", Frame 2 step pill).
-    // The mockup is drawn at ~0.43×; everything here is the Figma value × 2.3.
+    // MARK: Motion
 
-    private var thinking: Bool { (model.isBusy && !model.awaitingApproval) || model.guide.working }
+    private var motion: Animation { reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.92) }
+    /// Composer: in = fade while rising, out = fade while sinking.
+    private var composerTransition: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(insertion: .opacity.combined(with: .offset(y: 10)),
+                                              removal: .opacity.combined(with: .offset(y: 10)))
+    }
+    /// Thinking row grows out of the space the composer leaves.
+    private var workingTransition: AnyTransition {
+        reduceMotion ? .opacity : .asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .bottom)), removal: .opacity)
+    }
+    private var cardTransition: AnyTransition { reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 6)) }
 
-    private var bar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Group {
-                if thinking {
-                    HStack(spacing: 12) {                                          // gap 5
-                        Image("FigmaSpinner").resizable().frame(width: 28, height: 28)
-                        title(Text("Thinking..."))
-                    }
-                } else {
-                    TextField("", text: $model.text, prompt: title(Text("What can I help you with?")))
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 23, weight: .semibold, design: .rounded))
-                        .tracking(-0.92)
-                        .foregroundStyle(.white)
-                        .focused($focused)
-                        .onSubmit(model.send)
-                        .onExitCommand(perform: onClose)
-                }
+    // MARK: Composer (idle)
+
+    private var composer: some View {
+        HStack(spacing: 10) {
+            TextField("", text: $model.text, prompt: Text("What can I help you with?").foregroundStyle(.secondary))
+                .textFieldStyle(.plain)
+                .font(.system(size: 15))
+                .focused($focused)
+                .onSubmit(model.send)
+                .onExitCommand(perform: onClose)
+            Text(modelName)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .help("Local model: \(Ollama.model)")
+            Image(systemName: "mic") // ponytail: voice input (plan M2) isn't built; shown inactive
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .frame(width: 26, height: 26)
+                .help("Voice is coming soon")
+            Button(action: model.send) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(canSend ? Color.white : Color.secondary)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(canSend ? Color.accentColor : Color.primary.opacity(0.08)))
             }
-            .frame(height: 30)
-            Spacer(minLength: 0)
-            HStack(alignment: .bottom, spacing: 16) {                              // gap 7
-                HStack(spacing: 7) {                                               // gap 3
-                    Image("FigmaSliders").resizable().frame(width: 21, height: 21)  // 9
-                    Text(modelName).font(.system(size: 14, weight: .semibold)).tracking(-0.83)
-                        .foregroundStyle(.white).opacity(0.9)
-                }
-                .padding(.bottom, 9)
-                // Not in the design: Teach mode (PR #1) needs a switch; kept small next to the model chip.
-                // Not in the design: Guide (default), Do and Teach need a switch; kept small next to the model chip.
-                Picker("", selection: $model.mode) {
-                    ForEach(QuickBarModel.Mode.allCases, id: \.self) { Text($0.rawValue) }
-                }
-                .pickerStyle(.segmented).labelsHidden().controlSize(.mini).fixedSize()
-                .disabled(model.isBusy || model.guide.active)
-                .onChange(of: model.mode) { model.tutor.stop(); model.guide.stop() }
-                .padding(.bottom, 6)
-                Spacer()
-                Image("FigmaMic").resizable().frame(width: 16, height: 23)          // 7 × 10
-                    .opacity(0.5) // ponytail: voice (plan M2) isn't built; shown per design, inactive
-                    .help("Voice is coming soon")
-                    .padding(.bottom, 9)
-                primaryButton
-            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .help("Send (↩)")
         }
-        .padding(EdgeInsets(top: 41, leading: 28, bottom: 12, trailing: 21))
-        .frame(width: Figma.barSize.width, height: Figma.barSize.height)
-        .background(glass)
-        .overlay(alignment: .bottom) { stepPill.offset(y: 41 + 30) }              // pill 18 below the bar
+        .padding(.leading, 16).padding(.trailing, 10)
+        .frame(width: composerWidth, height: 48)
+        .background(GlassBackground(shape: RoundedRectangle(cornerRadius: Self.radius, style: .continuous)))
     }
 
-    private func title(_ text: Text) -> Text {
-        text.font(.system(size: 23, weight: .semibold, design: .rounded)).tracking(-0.92)  // SF Pro Rounded 10
-            .foregroundColor(.white.opacity(0.9))
-    }
+    private var canSend: Bool { !model.text.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var modelName: String { Ollama.model == "qwen3-vl:8b" ? "Qwen3-VL 8B" : Ollama.model }
 
-    private var modelName: String { Ollama.model == "qwen3-vl:8b" ? "Qwen 3-VL 8B" : Ollama.model }
+    // MARK: Working (single slim row)
 
-    /// "Step N" pill under the bar while PinDo works (one per action). PinDo doesn't plan the total
-    /// up front, so the design's "of 3" is left out.
-    @ViewBuilder private var stepPill: some View {
-        let steps = model.guide.active ? model.guide.step : model.answer.split(separator: "\n").filter { $0.hasPrefix("▸") }.count
-        if thinking || model.guide.active, steps > 0 {
-            HStack(spacing: 12) {
-                Image("FigmaClipboard").resizable().frame(width: 16, height: 16)    // 7
-                (Text("Step ") + Text("\(steps)").foregroundColor(Figma.stepNumber))
-                    .font(.system(size: 14, weight: .semibold)).tracking(-0.83).foregroundStyle(.white)
+    private var workingRow: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text(model.status)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1).truncationMode(.tail)
+                .contentTransition(.opacity)
+                .animation(.easeOut(duration: 0.2), value: model.status)
+            Spacer(minLength: 6)
+            Button(action: model.cancel) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
             }
-            .padding(EdgeInsets(top: 7, leading: 44, bottom: 7, trailing: 46))     // py 3, pl 19, pr 20
-            .background(GlassBackground(shape: Capsule()))
-            .transition(.opacity)
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
+            .help("Stop (Esc)")
+        }
+        .padding(.leading, 14).padding(.trailing, 8)
+        .frame(width: 380, height: 38)
+        .background(GlassBackground(shape: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+    }
+
+    // MARK: Cards (result, approval, guiding, choice)
+
+    private var cardContent: AnyView? {
+        switch model.phase {
+        case .working:
+            return nil // never a second card next to the thinking row
+        case .choosing:
+            return AnyView(card(text: "Do you want me to do it, or show you where to click?") {
+                Button("Show me") { model.choose(.guide) }.buttonStyle(QuietButtonStyle())
+                Button("Do it for me") { model.choose(.act) }.buttonStyle(QuietButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+                Button("Cancel") { model.cancel() }.buttonStyle(QuietButtonStyle()).keyboardShortcut(.cancelAction)
+            })
+        case .approval:
+            return AnyView(card(text: model.answer) {
+                Button("Allow") { model.send() }.buttonStyle(QuietButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+                Button("Stop") { model.cancel() }.buttonStyle(QuietButtonStyle()).keyboardShortcut(.cancelAction)
+            })
+        case .composing:
+            guard !model.answer.isEmpty, !model.teachMode else { return nil }
+            if model.guide.active {
+                return AnyView(card(text: model.answer, step: model.guide.step) {
+                    Button("Check again") { model.guide.checkAgain() }.buttonStyle(QuietButtonStyle())
+                    Button("Stop") { model.cancel() }.buttonStyle(QuietButtonStyle())
+                })
+            }
+            return AnyView(card(text: model.answer) {
+                Button("Done") { model.dismissResult() }.buttonStyle(QuietButtonStyle())
+            })
         }
     }
 
-    private var glass: some View {
-        GlassBackground(shape: RoundedRectangle(cornerRadius: Figma.radius, style: .continuous),
-                        glow: thinking ? Figma.thinkingBorder : nil)
-            .animation(.easeInOut(duration: 0.3), value: thinking)
-    }
-
-    /// White 18 px circle with the four-bar waveform (sends); Stop ■ while working, ✓ to approve.
-    private var primaryButton: some View {
-        let active = canSend || model.isBusy || model.guide.active
-        return Button {
-            if thinking || model.guide.active { model.cancel() } else { model.send() }
-        } label: {
-            Group {
-                if model.awaitingApproval {
-                    Image(systemName: "checkmark").font(.system(size: 17, weight: .bold))
-                } else if thinking || model.guide.active {
-                    Image(systemName: "stop.fill").font(.system(size: 14, weight: .bold))
-                } else {
-                    HStack(alignment: .center, spacing: 2.1) {                     // bars 1.32 wide, 2.23 apart
-                        let heights: [CGFloat] = [11.5, 18.4, 25.3, 11.5]                // 5, 8, 11, 5
-                        ForEach(heights.indices, id: \.self) { Capsule().frame(width: 3, height: heights[$0]) }
-                    }
-                }
+    private func card(text: String, step: Int = 0, @ViewBuilder actions: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if step > 0 {
+                Text("STEP \(step)").font(.system(size: 10.5, weight: .bold)).tracking(0.6).foregroundStyle(.secondary)
             }
-            .foregroundStyle(.black)
-            .frame(width: 41, height: 41)                                          // 18
-            .background(Circle().fill(.white.opacity(active ? 1 : 0.6)))
+            // Hug the text; only long results scroll (a max-height frame would always stretch to its maximum).
+            if text.count > 420 {
+                ScrollView { cardText(text) }.frame(height: 200)
+            } else {
+                cardText(text).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 6) { actions() }
         }
-        .buttonStyle(.plain)
-        .disabled(!active)
-        .help(thinking ? "Stop" : model.awaitingApproval ? "Allow" : "Send")
+        .padding(14)
+        .frame(width: composerWidth, alignment: .leading) // same width as the composer, so they read as one unit
+        .background(GlassBackground(shape: RoundedRectangle(cornerRadius: Self.radius, style: .continuous)))
     }
 
-    private var answerText: some View {
-        Text(model.answer)
-            .font(.system(size: 15, weight: .medium))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.2), radius: 1.4, y: 1)
-            .lineSpacing(3)
+    private func cardText(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13.5))
+            .foregroundStyle(.primary)
+            .lineSpacing(2.5)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-    }
-
-    private var card: some View {
-        GlassBackground(shape: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }

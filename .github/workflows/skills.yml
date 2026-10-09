@@ -26,5 +26,9 @@ jobs:
         run: |
           swiftc -swift-version 6 PinDo/GroundingGeometry.swift tests/GroundingTests.swift -o build/grounding-tests
           build/grounding-tests
+      - name: Test interaction routing
+        run: |
+          swiftc -swift-version 6 PinDo/IntentPolicy.swift tests/IntentPolicyTests.swift -o build/intent-tests
+          build/intent-tests
       - name: Check bundled resource
         run: test -f build/Build/Products/Debug/PinDo.app/Contents/Resources/ApplicationSkills.json

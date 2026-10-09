@@ -32,9 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let task = note.object as? String
             MainActor.assumeIsolated {
                 guard let task else { return }
-                // "do: …" / "teach: …" pick a mode; otherwise Guide.
+                // "guide: …" / "do: …" / "teach: …" force a mode; otherwise the intent policy decides.
                 let mode = QuickBarModel.Mode.allCases.first { task.lowercased().hasPrefix($0.rawValue.lowercased() + ":") }
-                quickBar.submit(mode.map { String(task.dropFirst($0.rawValue.count + 1)).trimmingCharacters(in: .whitespaces) } ?? task, mode: mode ?? .guide)
+                quickBar.submit(mode.map { String(task.dropFirst($0.rawValue.count + 1)).trimmingCharacters(in: .whitespaces) } ?? task, mode: mode)
             }
         }
         DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.check"), object: nil, queue: .main) { [quickBar] _ in
@@ -42,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.stop"), object: nil, queue: .main) { [quickBar] _ in
             MainActor.assumeIsolated { quickBar.cancel() }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.snapshot"), object: nil, queue: .main) { [quickBar] note in
+            let name = (note.object as? String) ?? "panel"
+            MainActor.assumeIsolated { quickBar.snapshot(to: FileManager.default.temporaryDirectory.appending(path: "pindo-\(name).png")) }
         }
         #endif
     }

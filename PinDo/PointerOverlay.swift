@@ -156,8 +156,7 @@ private struct PointerView: View {
     private var label: some View {
         Text(state.label)
             .font(.system(size: 14, weight: .semibold)).tracking(-0.83)
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.2), radius: 1.4, y: 1)
+            .foregroundStyle(.primary) // adaptive on glass: readable over light and dark apps
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(GlassBackground(shape: Capsule()))
     }

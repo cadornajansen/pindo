@@ -26,16 +26,18 @@ nonisolated enum IntentPolicy {
                                          "summarize", "tell me", "ano", "sino", "bakit", "kailan"]
     private static let politePrefixes = ["please", "can you", "could you", "would you", "pls"]
 
-    static func decide(_ request: String) -> Interaction {
-        let text = " " + request.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "?", with: " ").replacingOccurrences(of: ",", with: " ") + " "
-        func has(_ phrases: [String]) -> Bool { phrases.contains { text.contains(" " + $0 + " ") } }
+    /// A plain question (no action to take): answered without touching the computer, and the only kind of
+    /// request that may go to optional cloud answers.
+    static func isQuestion(_ request: String) -> Bool {
+        let words = verbFirst(" " + request.lowercased() + " ")
+        guard decide(request) == .act, let first = words.first, !actVerbs.contains(first), !first.hasPrefix("paki") else { return false }
+        return questionStarts.contains { words.starts(with: $0.split(separator: " ").map(String.init)) }
+    }
 
-        if has(teachPhrases) { return .teach }
-        if has(guidePhrases) { return .guide }
-
-        // Strip polite openers ("can you", "please", "paki-") to find the verb.
-        var words = text.split(separator: " ").map(String.init)
+    /// Words with polite openers ("can you", "please") removed, so the first word is the verb.
+    private static func verbFirst(_ text: String) -> [String] {
+        var words = text.replacingOccurrences(of: "?", with: " ").replacingOccurrences(of: ",", with: " ")
+            .split(whereSeparator: \.isWhitespace).map(String.init)
         var changed = true
         while changed {
             changed = false
@@ -44,6 +46,18 @@ nonisolated enum IntentPolicy {
                 if words.starts(with: pw) { words.removeFirst(pw.count); changed = true }
             }
         }
+        return words
+    }
+
+    static func decide(_ request: String) -> Interaction {
+        let text = " " + request.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "?", with: " ").replacingOccurrences(of: ",", with: " ") + " "
+        func has(_ phrases: [String]) -> Bool { phrases.contains { text.contains(" " + $0 + " ") } }
+
+        if has(teachPhrases) { return .teach }
+        if has(guidePhrases) { return .guide }
+
+        let words = verbFirst(text)
         // "help me <verb> …" is a request to do it when the verb is an action; "help me with this" is unclear.
         if words.starts(with: ["help", "me"]) {
             let rest = Array(words.dropFirst(2))

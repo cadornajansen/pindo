@@ -8,12 +8,69 @@ struct PinDoApp: App {
     var body: some Scene {
         MenuBarExtra("PinDo Pro", systemImage: "hand.point.up.left.fill") {
             Button("Open Quick Bar (Fn Space)") { delegate.quickBar.show() }
+            SettingsLink { Text("Settings…") }.keyboardShortcut(",")
             Button("Accessibility Settings…") {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
             }
             Divider()
             Button("Quit PinDo") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
+        Settings { SettingsView() }
+    }
+}
+
+/// Local model status and the optional cloud services. Everything cloud is off until the user turns it on.
+struct SettingsView: View {
+    @AppStorage("voiceInput") private var voiceInput = false
+    @AppStorage("voiceOutput") private var voiceOutput = false
+    @AppStorage("cloudReasoning") private var cloudReasoning = false
+    @State private var localStatus = "Checking…"
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent(Ollama.model == "qwen3-vl:8b" ? "Qwen3-VL 8B (Ollama)" : Ollama.model, value: localStatus)
+            } header: { Text("Local model") } footer: {
+                Text("Handles every request. Screenshots and screen content never leave this Mac.").foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Voice input (AssemblyAI)", isOn: $voiceInput)
+                KeyField(provider: .assemblyAI)
+                Toggle("Speak answers (ElevenLabs)", isOn: $voiceOutput)
+                KeyField(provider: .elevenLabs)
+                Toggle("Cloud answers when the local model is down (OpenRouter)", isOn: $cloudReasoning)
+                KeyField(provider: .openRouter)
+            } header: { Text("Cloud (optional)") } footer: {
+                Text("Voice input sends your recording to AssemblyAI. Spoken answers send the answer text to ElevenLabs. "
+                     + "Cloud answers send only your typed question to OpenRouter, never screen content. Keys are stored in your Keychain.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520)
+        .task { localStatus = await Ollama.status() }
+        .onAppear { NSApp.activate() } // menu-bar app: bring the window in front of the current app
+    }
+}
+
+private struct KeyField: View {
+    let provider: Provider
+    @State private var draft = ""
+    @State private var saved = false
+
+    var body: some View {
+        HStack {
+            SecureField("\(provider.name) key", text: $draft, prompt: Text(saved ? "Saved in Keychain" : "Not set"))
+            Button("Save") {
+                saved = Keychain.save(draft.trimmingCharacters(in: .whitespacesAndNewlines), for: provider.rawValue)
+                draft = ""
+            }
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            if saved {
+                Button("Remove") { Keychain.delete(provider.rawValue); saved = false }
+            }
+        }
+        .onAppear { saved = Keychain.has(provider.rawValue) }
     }
 }
 
@@ -42,6 +99,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.stop"), object: nil, queue: .main) { [quickBar] _ in
             MainActor.assumeIsolated { quickBar.cancel() }
+        }
+        // Renders Settings off-screen to $TMPDIR/pindo-settings.png.
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.settings"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                let window = NSWindow(contentRect: NSRect(x: -4000, y: -4000, width: 520, height: 520), styleMask: [.titled], backing: .buffered, defer: false)
+                window.contentView = NSHostingView(rootView: SettingsView())
+                window.orderFrontRegardless()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    if let view = window.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                        view.cacheDisplay(in: view.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?.write(to: FileManager.default.temporaryDirectory.appending(path: "pindo-settings.png"))
+                    }
+                    window.orderOut(nil)
+                }
+            }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.mic"), object: nil, queue: .main) { [quickBar] _ in
+            MainActor.assumeIsolated { quickBar.toggleVoice() }
+        }
+        // Object: path of an audio file, sent through the same transcription path as a recording.
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.transcribe"), object: nil, queue: .main) { [quickBar] note in
+            let path = note.object as? String
+            MainActor.assumeIsolated { if let path { quickBar.transcribe(file: URL(filePath: path)) } }
         }
         DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.snapshot"), object: nil, queue: .main) { [quickBar] note in
             let name = (note.object as? String) ?? "panel"

@@ -38,6 +38,21 @@ The model defaults to `qwen3-vl:8b` (`ollama pull qwen3-vl:8b`). Switch it with:
 defaults write com.pindopro.PinDo model <ollama-model-name>
 ```
 
+### Optional cloud voice and answers (off by default)
+
+Menu bar icon → **Settings…** shows the local model's status and three opt-in switches. Each needs your own key,
+saved from that window into your **Keychain** (never into files, defaults or the repo):
+
+| Switch | Provider | What is sent |
+|---|---|---|
+| Voice input | AssemblyAI | Your recording, only between clicking the mic and **Done** (`↩`; `Esc` discards; 60 s cap) |
+| Speak answers | ElevenLabs | The final answer text (≤ 600 characters); **Stop speaking** cuts it off |
+| Cloud answers | OpenRouter | Only a typed plain question, and only when the local model is unreachable |
+
+Screenshots and screen content never go to a cloud service. With every switch off, Pindo is fully local.
+Voice input also needs **Microphone** permission (macOS asks on first use). Optional overrides:
+`defaults write com.pindopro.PinDo elevenLabsVoice <voice id>`, `elevenLabsModel <model id>`, `openRouterModel <model id>`.
+
 **Signing note:** the project signs ad-hoc ("Sign to Run Locally"), so macOS may forget the Accessibility grant after a rebuild.
 To fix that for good, pick your Apple ID team under *Signing & Capabilities* in Xcode (a free account works).
 
@@ -69,6 +84,7 @@ local runtime supporting image input.
 ```bash
 swiftc -swift-version 6 PinDo/GroundingGeometry.swift tests/GroundingTests.swift -o build/grounding-tests && build/grounding-tests
 swiftc -swift-version 6 PinDo/IntentPolicy.swift tests/IntentPolicyTests.swift -o build/intent-tests && build/intent-tests
+swiftc -swift-version 6 PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests && build/cloud-tests
 defaults write com.pindopro.PinDo groundingDebug -bool true   # saves what Guide saw/answered to $TMPDIR/pindo-grounding/
 ```
 

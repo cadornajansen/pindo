@@ -168,6 +168,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "PinDo Pro";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "PinDo records only while you have the mic on, to turn your speech into a request.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -193,6 +194,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "PinDo Pro";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "PinDo records only while you have the mic on, to turn your speech into a request.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

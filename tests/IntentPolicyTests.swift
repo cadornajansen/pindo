@@ -35,6 +35,15 @@ enum IntentPolicyTests {
             ("", .clarify),
         ]
         var failures = 0
+        // Only plain questions may go to optional cloud answers.
+        for (request, expected) in [("what is the capital of Japan?", true), ("who wrote Noli Me Tangere", true),
+                                    ("make all the text bold", false), ("how do I make a chart?", false), ("pivot table", false),
+                                    ("can you open Excel", false), ("please what is 2+2", true), ("pakigawa ng folder", false),
+                                    ("is the file saved?", true)]
+        where IntentPolicy.isQuestion(request) != expected {
+            failures += 1
+            print("FAIL isQuestion(\(request.debugDescription)): expected \(expected)")
+        }
         for (request, expected) in cases where IntentPolicy.decide(request) != expected {
             failures += 1
             print("FAIL \(request.debugDescription): got \(IntentPolicy.decide(request)), expected \(expected)")

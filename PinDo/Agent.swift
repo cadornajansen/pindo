@@ -22,6 +22,9 @@ enum Agent {
 
         var history: [String] = []
         var lastProposal = ""
+        var anchorPID: pid_t? // the app being worked on; switching away stops the task
+        // A plain question gets an answer, never actions: the model can only reply (it opened news sites otherwise).
+        let answerOnly = IntentPolicy.isQuestion(task)
         // Typing or Return over a selection replaces it; only allow that when the task asks to overwrite.
         // ponytail: keyword heuristic; revisit when tasks get more varied.
         let keepSelection = task.contains(/\b(replace|overwrite|change|rewrite|rename|delete|remove|instead)\b/.ignoresCase())
@@ -29,12 +32,25 @@ enum Agent {
             try Task.checkCancellation()
             guard let app = NSWorkspace.shared.frontmostApplication else { break }
             let pid = app.processIdentifier, appName = app.localizedName ?? "App"
+            if !answerOnly, let anchorPID, anchorPID != pid {
+                agentLog.info("front app is now \(appName, privacy: .public)")
+                report("Stopped because \(appName) came to the front. Nothing more was done.")
+                return
+            }
+            anchorPID = pid
             let snap = await Task.detached { AX.snapshot(pid: pid, appName: appName, task: menuQuery) }.value
 
             let started = Date()
-            let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt + procedure)
+            let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt + procedure, answerOnly: answerOnly)
             agentLog.info("step \(history.count + 1, privacy: .public) in \(Date().timeIntervalSince(started), format: .fixed(precision: 2), privacy: .public)s: \(action.summary, privacy: .public)")
             try Task.checkCancellation()
+            // Never act on an app the user switched to while the model was thinking (its elements are stale).
+            // Answers take no action, so they don't need this.
+            if !answerOnly, let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != pid {
+                agentLog.info("front app changed from \(appName, privacy: .public) to \(front.localizedName ?? "?", privacy: .public)")
+                report("Stopped because \(front.localizedName ?? "another app") came to the front. Nothing more was done.")
+                return
+            }
             // Small models sometimes "ask" the user's own question back instead of answering it. Retry once.
             let plain = { (s: String) in s.lowercased().filter { $0.isLetter || $0.isNumber } }
             if action.action == "ask", let question = action.message, plain(question) == plain(task) {
@@ -71,11 +87,19 @@ enum Agent {
                     continue
                 }
                 report("▸ Opening \(name)")
+                anchorPID = nil // the opened app becomes the one to work in
                 if await openApp(name) { settle = .milliseconds(1500) } else { history.append("open_app \(name) ✗ not installed"); continue }
             case "open_url":
                 guard let url = action.text.flatMap(webURL) else { history.append("open_url ✗ not a web address"); continue }
+                // Like open_app: only a site the task names ("youtube" for youtube.com).
+                let site = url.host()?.split(separator: ".").dropLast().last.map(String.init) ?? ""
+                guard site.count > 1, task.localizedCaseInsensitiveContains(site) else {
+                    history.append("open_url \(url.host() ?? "") ✗ the task doesn't name that site; answer with done or use the open app")
+                    continue
+                }
                 report("▸ Opening \(url.host() ?? url.absoluteString)")
                 NSWorkspace.shared.open(url)
+                anchorPID = nil
                 settle = .milliseconds(1500)
             case "press":
                 guard let element else { history.append("press \(action.id ?? "") ✗ no such id"); continue }
@@ -84,6 +108,8 @@ enum Agent {
                 if !AX.press(element.element) { history.append("press \(element.id) ✗ the app refused"); continue }
             case "type":
                 guard let element, let text = action.text, !text.isEmpty else { history.append("type ✗ needs a listed id and text"); continue }
+                // Typing at a button falls back to key events, which land in whatever has focus: never do that.
+                guard element.isText else { history.append("type \(element.id) ✗ that is not a text field"); continue }
                 report("▸ Typing into “\(element.label)”")
                 if element.label.lowercased() == "name box" { // Excel: replace the address, and it only moves on Return
                     AX.replace(text, in: element.element)
@@ -197,6 +223,7 @@ nonisolated struct Candidate: @unchecked Sendable { // AXUIElement is a thread-s
     let line: String  // what the model sees
     let label: String // what the user sees
     let element: AXUIElement
+    var isText = false // only text fields/areas may be typed into
 }
 
 nonisolated struct Snapshot: Sendable {
@@ -307,7 +334,7 @@ nonisolated enum AX {
             line += " text=\"\(value.prefix(80).replacingOccurrences(of: "\n", with: " "))\""
         }
         if let choice { line += " value=\"\(choice.prefix(60))\"" } // e.g. Excel's Allow: "Any value"
-        return Candidate(id: id, line: line, label: title ?? choice ?? (isText ? "text area" : kind), element: el)
+        return Candidate(id: id, line: line, label: title ?? choice ?? (isText ? "text area" : kind), element: el, isText: isText)
     }
 
     private static func collectMenu(_ el: AXUIElement, path: String, depth: Int, into items: inout [(path: String, el: AXUIElement)]) {
@@ -429,6 +456,8 @@ enum Ollama {
         variant("open_url", "text"), variant("done", "message"), variant("ask", "message"),
     ]]
 
+    private static let answerSchema = variant("done", "message")
+
     private static func variant(_ action: String, _ fields: String...) -> [String: Any] {
         var properties: [String: Any] = ["action": ["const": action]]
         for field in fields { properties[field] = ["type": "string"] }
@@ -451,7 +480,15 @@ enum Ollama {
         _ = try await URLSession.shared.data(for: request("chat", ["model": model, "messages": [], "keep_alive": -1]))
     }
 
-    static func nextAction(task: String, history: [String], screen: String) async throws -> Action {
+    /// For Settings: is the local model reachable and installed?
+    static func status() async -> String {
+        var req = URLRequest(url: base.appending(path: "tags"))
+        req.timeoutInterval = 3
+        guard let (data, _) = try? await URLSession.shared.data(for: req) else { return "Ollama isn't running" }
+        return String(decoding: data, as: UTF8.self).contains("\"\(model)\"") ? "Ready" : "Not installed (ollama pull \(model))"
+    }
+
+    static func nextAction(task: String, history: [String], screen: String, answerOnly: Bool = false) async throws -> Action {
         let completed = history.isEmpty ? "Nothing yet." : history.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: "\n")
             + "\nSteps marked ✓ are finished. Do not do them again. If the task needs nothing more, reply done."
         let user = "\(screen)\n\nTask: \(task)\nAlready completed: \(completed)\n\nNext action?"
@@ -461,7 +498,7 @@ enum Ollama {
         let prompt = "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
         let body: [String: Any] = [
             "model": model, "raw": true, "prompt": prompt, "stream": false, "keep_alive": -1,
-            "format": schema, "options": ["temperature": 0],
+            "format": answerOnly ? answerSchema : schema, "options": ["temperature": 0],
         ]
         let (data, response) = try await URLSession.shared.data(for: request("generate", body))
         if (response as? HTTPURLResponse)?.statusCode == 404 { throw ModelError.notInstalled(model) }

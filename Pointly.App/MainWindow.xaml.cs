@@ -658,7 +658,8 @@ public partial class MainWindow : Window
                             EnsureAttemptCurrent(walkthroughAttempt, cancellationToken);
                             EnsureForegroundUnchanged(info);
                         }
-                        _presenter.ShowTarget(target.BoundingRectangle, false, fixedInstruction ?? response.Instruction);
+                        _presenter.ShowTarget(target.BoundingRectangle, false, fixedInstruction ?? response.Instruction,
+                            windowBounds: info.Context?.Bounds, controlType: target.ControlType);
                         StatusText.Text = fixedInstruction ?? response.Instruction;
                         onInstruction?.Invoke(response.Instruction);
                         if (walkthroughStep?.ActionType == WalkthroughActionType.TextEntry)
@@ -869,7 +870,7 @@ public partial class MainWindow : Window
             EnsureAttemptCurrent(walkthroughAttempt, cancellationToken);
             EnsureForegroundUnchanged(info);
             _presenter.ShowTarget(coordinates.PhysicalScreenBounds, response.BoundingBox is null,
-                fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.");
+                fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.", windowBounds: info.Context?.Bounds);
             StatusText.Text = fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.";
             onInstruction?.Invoke(response.Instruction ?? $"Look for '{response.TargetLabel}'.");
             StartClickVerification(info, coordinates.PhysicalScreenBounds,

@@ -6,6 +6,13 @@ namespace Pointly.Tests;
 public sealed class PresentationTests
 {
     [Theory]
+    [InlineData("ControlType.Edit", AnnotationStyle.Underline)]
+    [InlineData("ControlType.Pane", AnnotationStyle.Rectangle)]
+    [InlineData("ControlType.Button", AnnotationStyle.Pointer)]
+    [InlineData(null, AnnotationStyle.Pointer)]
+    public void CueComesFromResolvedControlType(string? controlType, AnnotationStyle expected) =>
+        Assert.Equal(expected, PresentationGeometry.CueFor(controlType));
+    [Theory]
     [InlineData(1)] [InlineData(1.25)] [InlineData(1.5)] [InlineData(2)]
     public void PlacementAvoidsTargetAndStaysInsideNegativeMonitor(double scale)
     {

@@ -36,12 +36,13 @@ public sealed class GuidancePresenter : IDisposable
         _log($"SummonToComposerMs={timer.ElapsedMilliseconds}");
     }
 
-    public void ShowTarget(Rect target, bool point, string instruction, AnnotationStyle? style = null)
+    public void ShowTarget(Rect target, bool point, string instruction, AnnotationStyle? style = null,
+        Rect? windowBounds = null, string? controlType = null)
     {
         var timer = Stopwatch.StartNew();
         CancelNarration();
         _anchor = new(target.X + target.Width / 2, target.Y + target.Height / 2);
-        Show(new(_lifetime.Replace(), instruction, target, point, style ?? (point ? AnnotationStyle.Ring : AnnotationStyle.Rectangle)));
+        Show(new(_lifetime.Replace(), instruction, target, point, style ?? PresentationGeometry.CueFor(controlType), windowBounds));
         _log($"TargetReadyToGuidanceVisibleMs={timer.ElapsedMilliseconds}");
     }
 

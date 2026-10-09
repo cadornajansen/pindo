@@ -4,11 +4,17 @@ namespace Pointly.App.Presentation;
 
 public enum AnnotationStyle { Pointer, Ring, Rectangle, Underline, Stroke, Spotlight }
 public sealed record GuidancePresentation(long Identity, string Instruction, Rect? Target,
-    bool IsPoint = false, AnnotationStyle Style = AnnotationStyle.Pointer);
+    bool IsPoint = false, AnnotationStyle Style = AnnotationStyle.Pointer, Rect? WindowBounds = null);
 public sealed record BuddyPlacement(Rect Buddy, Rect Bubble);
 
 public static class PresentationGeometry
 {
+    public static AnnotationStyle CueFor(string? controlType) => controlType switch
+    {
+        "ControlType.Edit" or "Edit" or "ControlType.ComboBox" or "ComboBox" => AnnotationStyle.Underline,
+        "ControlType.Pane" or "Pane" or "ControlType.Document" or "Document" or "ControlType.Table" or "Table" => AnnotationStyle.Rectangle,
+        _ => AnnotationStyle.Pointer
+    };
     public static Point ToDip(Point physical, Rect monitor, double scale) =>
         new((physical.X - monitor.X) / scale, (physical.Y - monitor.Y) / scale);
 

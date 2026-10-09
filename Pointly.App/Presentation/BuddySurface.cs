@@ -96,19 +96,48 @@ internal sealed class BuddySurface : Window
         Move(_motion, _position ?? next, next);
         Move(_bubbleMotion, new Point(_bubbleMotion.X, _bubbleMotion.Y), bubble, _position is not null);
         _position = next;
-        _annotations.Children.Clear();
+        ClearTarget();
         if (presentation.Target is { } physical)
         {
             Point top = PresentationGeometry.ToDip(physical.TopLeft, Monitor.Bounds, scale);
             Rect dip = new(top, new Size(physical.Width / scale, physical.Height / scale));
-            _annotations.Children.Add(CreateAnnotation(presentation.Style, dip, new Point(next.X + 24, next.Y + 24),
-                new Size(Monitor.Bounds.Width / scale, Monitor.Bounds.Height / scale)));
+            Rect window = presentation.WindowBounds ?? Monitor.WorkArea;
+            window.Intersect(Monitor.Bounds);
+            Rect windowDip = new(PresentationGeometry.ToDip(window.TopLeft, Monitor.Bounds, scale),
+                new Size(window.Width / scale, window.Height / scale));
+            Rect opening = dip;
+            opening.Inflate(9, 9);
+            var spotlight = new System.Windows.Shapes.Path
+            {
+                Data = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(windowDip), new RectangleGeometry(opening, 8, 8)),
+                Fill = new SolidColorBrush(Color.FromArgb(48, 0, 0, 0)), IsHitTestVisible = false
+            };
+            _annotations.Children.Add(spotlight);
+            Point origin = new(Math.Clamp(dip.Left - 65, windowDip.Left + 12, Math.Max(windowDip.Left + 12, windowDip.Right - 12)),
+                Math.Clamp(dip.Top - 45, windowDip.Top + 12, Math.Max(windowDip.Top + 12, windowDip.Bottom - 12)));
+            Shape cue = CreateAnnotation(presentation.Style, dip, origin,
+                new Size(Monitor.Bounds.Width / scale, Monitor.Bounds.Height / scale));
+            _annotations.Children.Add(cue);
+            if (SystemParameters.ClientAreaAnimation)
+            {
+                double length = presentation.Style == AnnotationStyle.Pointer ? (dip.TopLeft - origin).Length + 30 :
+                    presentation.Style == AnnotationStyle.Underline ? dip.Width : 2 * (dip.Width + dip.Height);
+                double dash = Math.Max(1, length / cue.StrokeThickness);
+                cue.StrokeDashArray = new DoubleCollection { dash, dash };
+                var draw = new DoubleAnimation(dash, 0, TimeSpan.FromMilliseconds(300)) { FillBehavior = FillBehavior.Stop };
+                draw.Completed += (_, _) => { cue.BeginAnimation(Shape.StrokeDashOffsetProperty, null); cue.StrokeDashArray = null; };
+                cue.BeginAnimation(Shape.StrokeDashOffsetProperty, draw);
+            }
         }
     }
 
     public void SetState(string state) => _state.Text = state;
     public void SetPartial(string partial) => _state.Text = "Listening: " + (partial.Length > 90 ? partial[..87] + "…" : partial);
-    public void ClearTarget() => _annotations.Children.Clear();
+    public void ClearTarget()
+    {
+        foreach (Shape shape in _annotations.Children.OfType<Shape>()) shape.BeginAnimation(Shape.StrokeDashOffsetProperty, null);
+        _annotations.Children.Clear();
+    }
     public void StopMotion()
     {
         foreach (TranslateTransform transform in new[] { _motion, _bubbleMotion })

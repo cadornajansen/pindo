@@ -14,7 +14,9 @@ enum Agent {
         if await fastPath(task, report: report) { return }
 
         // A matching lesson from the skills library becomes a known procedure for the model to follow.
-        let skill = Skills.match(task: task)
+        // The totals lesson is a review procedure (inspect, add an AVERAGE, "formula bar shows SUM"): in Do mode it made the
+        // model retype a finished formula. Typing totals is covered by the Excel tip; Teach mode still uses the lesson.
+        let skill = Skills.match(task: task).flatMap { ["excel.totals_averages"].contains($0.id) ? nil : $0 }
         if let skill { report("▸ Using skill: \(skill.title)") }
         let procedure = skill.map { "\n\n" + Skills.procedure($0) } ?? ""
         // Menu commands are ranked by word overlap; include the skill's targets so e.g. "Data Validation" is offered.
@@ -62,6 +64,13 @@ enum Agent {
             let element = action.id.flatMap { id in snap.candidates.first { $0.id == id } }
             // Steps are named by label, not id: menu ids shift when items enable (e.g. after Select All).
             let step = describe(action, element)
+            // Excel: retyping the address the name box already shows changes nothing visible, so the model repeats it.
+            // Say what that means instead of stopping on the repeat.
+            if action.action == "type", let element, element.label.lowercased() == "name box", let address = action.text?.nonEmpty,
+               !history.isEmpty, element.line.localizedCaseInsensitiveContains("text=\"\(address)\"") {
+                history.append("\(step) ✗ \(address) is already selected (the name box shows it); now type the cell values into the Formula Bar")
+                continue
+            }
             if step == lastProposal {
                 report(history.last?.hasSuffix("✓") == true
                     ? "Stopped before repeating \(step). The task is probably finished. Tell me if it isn't."
@@ -114,6 +123,16 @@ enum Agent {
                 if element.label.lowercased() == "name box" { // Excel: replace the address, and it only moves on Return
                     AX.replace(text, in: element.element)
                     Keys.post(Keys.parse("return")!, pid: pid)
+                } else if element.label.lowercased().hasPrefix("formula bar") {
+                    // Excel accepts text set on the formula bar through Accessibility and ignores it (nothing appeared).
+                    // Type into the selected cell like a person instead: each line, then Return, which commits it and
+                    // moves down, so "Sales\n100\n200" fills the selected cell and the ones below it.
+                    for line in text.split(separator: "\n") where !line.trimmingCharacters(in: .whitespaces).isEmpty {
+                        Keys.typeText(String(line), pid: pid)
+                        try await Task.sleep(for: .milliseconds(60))
+                        Keys.post(Keys.parse("return")!, pid: pid)
+                        try await Task.sleep(for: .milliseconds(120))
+                    }
                 } else {
                     if !keepSelection { AX.collapseSelection(element.element) }
                     AX.type(text, into: element.element, pid: pid)
@@ -139,7 +158,8 @@ enum Agent {
     }
 
     private static func describe(_ action: Ollama.Action, _ element: Candidate?) -> String {
-        [action.action, element.map { "“\($0.label)”" } ?? action.id, action.combo, action.text.map { "\"\($0.prefix(40))\"" }]
+        [action.action, element.map { "“\($0.label)”" } ?? action.id, action.combo,
+         action.text.map { "\"\($0.prefix(40).replacingOccurrences(of: "\n", with: "\\n"))\"" }]
             .compactMap { $0 }.joined(separator: " ")
     }
 
@@ -201,7 +221,11 @@ enum Skills {
     /// Keyed by application id or skill id. Without the dropdown hint the model pressed the Input Message tab.
     // ponytail: hand-written per skill; move into ApplicationSkills.json (an "agent_hint" per step) as they grow.
     private static let tips = [
-        "microsoft.excel": "Excel tip: to select cells, type the address (like B2 or A1:A10) into the \"name box\" field.",
+        // Wording tested offline on the saved Excel prompt: with it the model selects A1 once, then fills every cell in one step.
+        "microsoft.excel": "Excel steps for entering cells: (1) type the first cell address (like A1) into the \"name box\" field, once; "
+            + "it shows that address afterwards. (2) Then type every value AND formula into the \"Formula Bar\" textarea in ONE type "
+            + "action, one per line separated by \\n, top to bottom (for example \"Sales\\n100\\n200\\n=SUM(A2:A3)\"): each line fills a cell "
+            + "and moves down. Formulas start with =. (3) Then reply done.",
         "excel.dropdown": "Hint: in Data Validation, press the \"Allow:\" popup and choose List; then type the choices, separated by commas, into \"Source:\" and press OK.",
     ]
 
@@ -210,7 +234,9 @@ enum Skills {
             "\(i + 1). \(step.objective) [\(step.target.semantic_name)] Done when: \(step.expected_result.joined(separator: " "))"
         }
         // The lesson's input questions are left out: with them the model asked even when the task gave every detail.
-        return "Known procedure from PinDo's skills library (trusted; follow it in order, using the controls listed above): \(skill.title)\n"
+        // "Skip … the task doesn't ask for": the totals lesson made the model add an AVERAGE nobody requested.
+        return "Known procedure from PinDo's skills library (trusted; follow it in order, using the controls listed above, "
+            + "and skip steps the task doesn't ask for): \(skill.title)\n"
             + steps.joined(separator: "\n") + [skill.application_id, skill.id].compactMap { tips[$0] }.map { "\n" + $0 }.joined()
     }
 }

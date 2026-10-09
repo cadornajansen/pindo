@@ -20,6 +20,9 @@ struct SkillLibraryTests {
         precondition(profile.matches(name: "Safari", bundleID: nil, host: "www.example.com"))
         precondition(!profile.matches(name: "Safari", bundleID: nil, host: "example.com.evil.test"))
         precondition(!profile.matches(name: "Example", bundleID: nil, host: nil))
+        let wrapped = ApplicationProfile(id: "test.wrapped", name: "Example", aliases: ["Example"], bundle_ids: ["com.example.editor"], domains: ["example.com"], surface: "browser", terminology: ["page"])
+        precondition(wrapped.matches(name: "Example", bundleID: "com.example.editor", host: nil))
+        precondition(!wrapped.matches(name: "Example", bundleID: "com.other.app", host: nil))
         for changed in 0..<7 {
             let accepted = TeachingProgress.isCurrent(session: 1, currentSession: changed == 1 ? 2 : 1,
                 step: 2, currentStep: changed == 2 ? 3 : 2, observation: 3, currentObservation: changed == 3 ? 4 : 3,

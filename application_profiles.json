@@ -98,7 +98,9 @@
       "aliases": [
         "Canva"
       ],
-      "bundle_ids": [],
+      "bundle_ids": [
+        "com.canva.canvaeditor"
+      ],
       "domains": [
         "canva.com"
       ],

@@ -430,9 +430,14 @@ struct GlassBackground<S: InsettableShape>: View {
         .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
     }
 
-    /// Glass alone goes see-through over a white page while the text stays white (dark mode), or the reverse.
-    /// A backing in the window's own appearance keeps text contrast on any background.
-    private var backing: some View { shape.fill(Color(nsColor: .windowBackgroundColor).opacity(0.75)) }
+    /// The bar's own appearance, read outside the glass. Liquid Glass re-resolves dynamic colors for what's behind
+    /// it, so a dynamic backing turned white over white pages while the text (outside the glass) stayed white.
+    @Environment(\.colorScheme) private var scheme
+
+    /// A fixed backing in the bar's appearance keeps text contrast on any background.
+    private var backing: some View {
+        shape.fill(scheme == .dark ? Color(white: 0.12, opacity: 0.82) : Color(white: 0.98, opacity: 0.85))
+    }
 }
 
 private struct ContentHeight: PreferenceKey {

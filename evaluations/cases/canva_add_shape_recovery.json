@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.canva.add_shape.recovery",
+  "skill_id": "canva.add_shape",
+  "application_id": "canva.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "An editable blank Canva presentation is open in the editor; nothing is selected. The window is narrow, so some toolbar or panel controls are collapsed.",
+  "user_instruction": "Add a star shape",
+  "expected_next_action": {
+    "objective": "Click Elements (the shapes icon) in the left side panel of the editor.",
+    "target": {
+      "role": "tab",
+      "semantic_name": "Elements (side panel)"
+    }
+  },
+  "expected_result": [
+    "The side panel shows element categories, including Shapes."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

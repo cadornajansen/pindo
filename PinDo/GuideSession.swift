@@ -17,6 +17,8 @@ final class GuideSession {
 
     private static let maxSteps = 10
     private var goal = ""
+    private var procedure: String?     // matched lesson from the skills library, if any
+    private var webEditor = false      // the lesson is for a web app (Canva…): its UI is drawn, so look at the screen
     private var history: [String] = []
     private var lastLabel: String?
     private var targetPID: pid_t?
@@ -32,6 +34,9 @@ final class GuideSession {
         history = []
         step = 0
         lastLabel = nil
+        let skill = Skills.match(task: goal)
+        procedure = skill.map(Skills.procedure)
+        webEditor = skill?.surface == "browser"
         active = true
         appWatcher = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
@@ -62,12 +67,13 @@ final class GuideSession {
         stop()
     }
 
-    private func advance() {
+    /// `vision`: include the screenshot even if Accessibility looks rich enough.
+    private func advance(vision: Bool = false) {
         generation += 1
         let token = generation
         working = true
         overlay.hide()
-        let goal = self.goal, history = self.history
+        let goal = self.goal, history = self.history, procedure = self.procedure, useVision = vision || webEditor
         Task {
             defer { if token == self.generation { self.working = false } }
             guard let ctx = await Task.detached(operation: { GroundingCollector.collect(task: goal) }).value else {
@@ -75,7 +81,8 @@ final class GuideSession {
                 return
             }
             do {
-                let (result, timings) = try await Grounder.ground(goal: goal, history: history, context: ctx)
+                let (result, timings) = try await Grounder.ground(goal: goal, history: history, context: ctx,
+                                                                  procedure: procedure, vision: useVision, pointOnly: webEditor)
                 // Stale: cancelled, superseded, or the user moved to another app while the model was thinking.
                 guard token == generation, NSWorkspace.shared.frontmostApplication?.processIdentifier == ctx.pid else { return }
                 lastTimings = timings
@@ -87,7 +94,11 @@ final class GuideSession {
                 case .message(let text, let final):
                     final ? finish(text) : report?(text)
                 case .target(let target):
-                    if target.label == lastLabel {
+                    if target.label == lastLabel, !useVision {
+                        // Same target after the user acted: Accessibility may not show what changed (a ribbon tab that
+                        // opened, a canvas). Look at the screen once before saying nothing happened.
+                        return advance(vision: true)
+                    } else if target.label == lastLabel {
                         report?("That step doesn't seem to have changed anything yet. Try “\(target.label)” again, or press Check again.")
                     } else {
                         step += 1

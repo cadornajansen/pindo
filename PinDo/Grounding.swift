@@ -23,8 +23,8 @@ nonisolated struct GroundingContext: @unchecked Sendable {
     let appName: String
     let windowID: CGWindowID
     let windowFrame: CGRect // global points
-    let elements: [AXTarget]
-    let menuRoutes: [String] // "File > New Folder (⇧⌘N)": commands that live in menus, as hints
+    var elements: [AXTarget]
+    var menuRoutes: [String] // "File > New Folder (⇧⌘N)": commands that live in menus, as hints
     let collectMillis: Double
 }
 
@@ -230,32 +230,43 @@ enum Grounder {
         """
 
     // Property order matters: Ollama's grammar follows it, and "kind" must be decided first.
-    private static func schema(allowPoint: Bool) -> String {
+    private static func schema(allowPoint: Bool, allowElement: Bool = true) -> String {
         let element = #"{"type":"object","properties":{"kind":{"const":"accessibility_target"},"element_id":{"type":"string"},"instruction":{"type":"string"}},"required":["kind","element_id","instruction"],"additionalProperties":false}"#
         let point = #"{"type":"object","properties":{"kind":{"const":"visual_target"},"point_2d":{"type":"array","items":{"type":"integer"},"minItems":2,"maxItems":2},"instruction":{"type":"string"}},"required":["kind","point_2d","instruction"],"additionalProperties":false}"#
         let rest = #"{"type":"object","properties":{"kind":{"const":"clarification"},"question":{"type":"string"}},"required":["kind","question"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"no_target"},"reason":{"type":"string"}},"required":["kind","reason"],"additionalProperties":false},{"type":"object","properties":{"kind":{"const":"done"},"message":{"type":"string"}},"required":["kind","message"],"additionalProperties":false}"#
-        return #"{"anyOf":["# + element + (allowPoint ? "," + point : "") + "," + rest + "]}"
+        let targets = [allowElement ? element : nil, allowPoint ? point : nil].compactMap { $0 }
+        return #"{"anyOf":["# + (targets + [rest]).joined(separator: ",") + "]}"
     }
 
     struct Timings: Codable { var collect = 0.0, capture = 0.0, textInference = 0.0, visionInference = 0.0, validate = 0.0 }
 
     /// One request, AX first: text-only when the window has enough labeled controls; the screenshot is added
-    /// only if AX is thin or the text-only answer found nothing.
-    static func ground(goal: String, history: [String], context ctx: GroundingContext) async throws -> (GroundingResult, Timings) {
+    /// only if AX is thin, the text-only answer found nothing, or the caller asks for it (`vision`).
+    /// `procedure` is a matched lesson from the skills library, given to the model as the known way to do the goal.
+    static func ground(goal: String, history: [String], context ctx: GroundingContext,
+                       procedure: String? = nil, vision: Bool = false, pointOnly: Bool = false) async throws -> (GroundingResult, Timings) {
         var t = Timings(collect: ctx.collectMillis)
         let debug = GroundingDebug.start(goal: goal, context: ctx)
         var capture: WindowCapture?
         var outcome: GroundingOutcome
 
-        if ctx.elements.count >= 4 {
-            let (text, ms) = try await ask(goal: goal, history: history, ctx: ctx, image: nil)
+        // Menu bar items are always there, so they don't count: Electron and canvas editors (Canva) expose a
+        // menu bar and nothing else, and the model then pointed at File instead of the Text panel.
+        let windowControls = ctx.elements.filter { $0.role != "AXMenuBarItem" }.count
+        // pointOnly (web editors like Canva): their real controls are drawn, and the few readable ones (window buttons,
+        // File/Edit/View) are never the answer. Offered them, the model attached a correct "click the T icon"
+        // instruction to the zoom button. Without them it must point at what it sees.
+        var ctx = ctx
+        if pointOnly { ctx.elements = []; ctx.menuRoutes = [] }
+        if windowControls >= 4 && !vision && !pointOnly {
+            let (text, ms) = try await ask(goal: goal, history: history, ctx: ctx, image: nil, procedure: procedure)
             t.textInference = ms
             debug?.write("response-text.json", text)
             outcome = try parsed(text, ctx: ctx, image: false)
             if case .noTarget = outcome, let shot = try? await GroundingCapture.capture(windowID: ctx.windowID) {
                 capture = shot
                 t.capture = shot.millis
-                let (text2, ms2) = try await ask(goal: goal, history: history, ctx: ctx, image: shot)
+                let (text2, ms2) = try await ask(goal: goal, history: history, ctx: ctx, image: shot, procedure: procedure)
                 t.visionInference = ms2
                 debug?.write("response-vision.json", text2)
                 outcome = try parsed(text2, ctx: ctx, image: true)
@@ -264,7 +275,7 @@ enum Grounder {
             let shot = try await GroundingCapture.capture(windowID: ctx.windowID)
             capture = shot
             t.capture = shot.millis
-            let (text, ms) = try await ask(goal: goal, history: history, ctx: ctx, image: shot)
+            let (text, ms) = try await ask(goal: goal, history: history, ctx: ctx, image: shot, procedure: procedure)
             t.visionInference = ms
             debug?.write("response-vision.json", text)
             outcome = try parsed(text, ctx: ctx, image: true)
@@ -306,7 +317,8 @@ enum Grounder {
         }
     }
 
-    private static func ask(goal: String, history: [String], ctx: GroundingContext, image: WindowCapture?) async throws -> (String, Double) {
+    private static func ask(goal: String, history: [String], ctx: GroundingContext, image: WindowCapture?,
+                            procedure: String?) async throws -> (String, Double) {
         // Items of an open menu first, marked: without that the model kept pointing at the button that opens it.
         let ordered = ctx.elements.filter { $0.role == "AXMenuItem" } + ctx.elements.filter { $0.role != "AXMenuItem" }
         let controls = ordered.map { e in
@@ -315,6 +327,7 @@ enum Grounder {
         var user = "App: \(ctx.appName)\nControls:\n\(controls.isEmpty ? "(none readable)" : controls)"
         if !ctx.menuRoutes.isEmpty { user += "\nMenu commands (reachable through the menu bar): " + ctx.menuRoutes.joined(separator: "; ") }
         user += "\n\nGoal: \(goal)\nSteps already shown: " + (history.isEmpty ? "none" : history.joined(separator: " | "))
+        if let procedure { user += "\n\n\(procedure)\nPoint at the control for the first step whose result is not on screen yet." }
         if image != nil { user = "[img-0]" + user + "\nA screenshot of the window is attached." }
         // Raw prompt with an empty <think> block: ~0.5 s per call instead of 3-28 s (measured).
         let prompt = "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
@@ -322,7 +335,8 @@ enum Grounder {
                                    "format": "__SCHEMA__", "options": ["temperature": 0, "num_predict": 200]]
         if let image { body["images"] = [image.jpeg.base64EncodedString()] }
         var data = try JSONSerialization.data(withJSONObject: body)
-        data = Data(String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"__SCHEMA__\"", with: schema(allowPoint: image != nil)).utf8)
+        data = Data(String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"__SCHEMA__\"",
+                                                                             with: schema(allowPoint: image != nil, allowElement: !ctx.elements.isEmpty)).utf8)
         var request = URLRequest(url: URL(string: "http://127.0.0.1:11434/api/generate")!)
         request.httpMethod = "POST"
         request.timeoutInterval = 60

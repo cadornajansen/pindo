@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.canva.text_effects.recovery",
+  "skill_id": "canva.text_effects",
+  "application_id": "canva.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "An editable Canva presentation is open with a heading text box on the page; nothing is selected. The window is narrow, so some toolbar or panel controls are collapsed.",
+  "user_instruction": "Apply an outline effect to the heading",
+  "expected_next_action": {
+    "objective": "Click once on the text box on the page to select it.",
+    "target": {
+      "role": "text box",
+      "semantic_name": "Text box on the page"
+    }
+  },
+  "expected_result": [
+    "The text box shows a selection outline and the text toolbar appears above the page."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

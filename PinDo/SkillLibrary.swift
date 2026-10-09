@@ -82,6 +82,8 @@ nonisolated struct ApplicationProfile: Codable, Sendable, Identifiable {
 
     func matches(name: String, bundleID: String?, host: String?) -> Bool {
         if surface == "browser" {
+            // A web app's own desktop wrapper (Canva for Mac) runs the same editor, so its bundle ID counts too.
+            if let bundleID, bundle_ids.contains(bundleID) { return true }
             guard let host else { return false }
             return domains.contains { host.lowercased() == $0 || host.lowercased().hasSuffix("." + $0) }
         }
@@ -95,6 +97,13 @@ nonisolated struct SkillLibrary: Decodable, Sendable {
     let skills: [TeachingSkill]
 
     static func load() throws -> SkillLibrary {
+        #if DEBUG
+        // Tune skills without a rebuild (a rebuild resets macOS permissions for ad-hoc builds):
+        // `defaults write com.pindopro.PinDo skillsOverride <path to ApplicationSkills.json>`, then restart Pindo.
+        if let path = UserDefaults.standard.string(forKey: "skillsOverride"), let data = FileManager.default.contents(atPath: path) {
+            return try decode(data)
+        }
+        #endif
         guard let url = Bundle.main.url(forResource: "ApplicationSkills", withExtension: "json") else {
             throw LibraryError.invalid("The skills resource is missing. Rebuild the app with its resources.")
         }

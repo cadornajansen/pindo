@@ -25,6 +25,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         startHotKey()
         Task { try? await Ollama.warm() }
+        #if DEBUG
+        // Test hook for scripted checks (debug builds only):
+        // a distributed notification named com.pindopro.PinDo.debug.run with the task as its object.
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.pindopro.PinDo.debug.run"), object: nil, queue: .main) { [quickBar] note in
+            let task = note.object as? String
+            MainActor.assumeIsolated { if let task { quickBar.submit(task) } }
+        }
+        #endif
     }
 
     // The tap can't be created until Accessibility is granted; keep retrying so it

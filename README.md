@@ -21,10 +21,10 @@ Or open `PinDo.xcodeproj` in Xcode and press ⌘R.
 2. Press **`Fn + Space`** anywhere. The quick bar appears at the bottom of the window you're in. Type a question and press ↩. `Esc`, `Fn + Space` or clicking elsewhere closes it.
 3. There's no `Fn` key on your keyboard? Use the hand icon in the menu bar → *Open Quick Bar*.
 
-The model defaults to `maternion/mai-ui:2b`. Switch it with:
+The model defaults to `qwen3-vl:8b` (`ollama pull qwen3-vl:8b`). Switch it with:
 
 ```bash
-defaults write com.pindopro.PinDo model qwen3-vl:8b
+defaults write com.pindopro.PinDo model <ollama-model-name>
 ```
 
 **Signing note:** the project signs ad-hoc ("Sign to Run Locally"), so macOS may forget the Accessibility grant after a rebuild.

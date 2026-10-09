@@ -6,12 +6,18 @@ import SwiftUI
 final class QuickBar {
     private let model = QuickBarModel()
     private lazy var panel = QuickBarPanel(rootView: QuickBarView(model: model, onClose: { [weak self] in self?.hide() }),
-                                           onResignKey: { [weak self] in self?.hide() })
+                                           onResignKey: { [weak self] in if self?.model.isBusy == false { self?.hide() } })
     private var isShown = false
 
     init() { _ = panel }
 
     func toggle() { isShown ? hide() : show() }
+
+    func submit(_ text: String) {
+        show()
+        model.text = text
+        model.send()
+    }
 
     func show() {
         guard !isShown else { return }
@@ -104,10 +110,13 @@ final class QuickBarModel {
     var text = ""
     var answer = ""
     var isBusy = false
+    var awaitingApproval = false
     var focusTick = 0
     private var task: Task<Void, Never>?
+    private var approval: CheckedContinuation<Bool, Never>?
 
     func send() {
+        if awaitingApproval { return resolveApproval(true) } // ↩ = allow
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isBusy else { return }
         text = ""
@@ -115,11 +124,12 @@ final class QuickBarModel {
         isBusy = true
         task = Task {
             do {
-                try await Ollama.chat(prompt) { self.answer += $0 }
+                try await Agent.run(task: prompt, report: { self.say($0) }, confirm: { await self.askApproval($0) })
             } catch is CancellationError {
             } catch {
                 if !Task.isCancelled {
-                    answer = "Couldn't reach the local model. Is Ollama running?\n(\(error.localizedDescription))"
+                    say(error is Ollama.ModelError ? error.localizedDescription
+                        : "Couldn't reach the local model. Is Ollama running?\n(\(error.localizedDescription))")
                 }
             }
             isBusy = false
@@ -129,7 +139,24 @@ final class QuickBarModel {
     func cancel() {
         task?.cancel()
         task = nil
+        resolveApproval(false)
         isBusy = false
+    }
+
+    private func say(_ line: String) {
+        answer = answer.isEmpty ? line : answer + "\n" + line
+    }
+
+    private func askApproval(_ question: String) async -> Bool {
+        say("⚠︎ \(question) Press ↩ to allow, or Esc to stop.")
+        awaitingApproval = true
+        return await withCheckedContinuation { approval = $0 }
+    }
+
+    private func resolveApproval(_ allowed: Bool) {
+        awaitingApproval = false
+        approval?.resume(returning: allowed)
+        approval = nil
     }
 }
 
@@ -139,7 +166,7 @@ struct QuickBarView: View {
     @FocusState private var focused: Bool
 
     private let accent = Color(red: 0.33, green: 0.56, blue: 1.0)
-    private var canSend: Bool { !model.text.trimmingCharacters(in: .whitespaces).isEmpty && !model.isBusy }
+    private var canSend: Bool { model.awaitingApproval || (!model.text.trimmingCharacters(in: .whitespaces).isEmpty && !model.isBusy) }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -166,27 +193,37 @@ struct QuickBarView: View {
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(accent)
                 .symbolEffect(.pulse, isActive: model.isBusy)
-            TextField("What can I help you with?", text: $model.text)
+            TextField("Ask, or tell me what to do…", text: $model.text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 18))
                 .focused($focused)
                 .onSubmit(model.send)
                 .onExitCommand(perform: onClose)
-            Button(action: model.send) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(canSend ? accent : Color.secondary.opacity(0.35),
-                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .disabled(!canSend)
-            .animation(.easeOut(duration: 0.15), value: canSend)
+            primaryButton
         }
         .padding(.horizontal, 18)
         .frame(height: 62)
         .background(card)
+    }
+
+    /// Send ↑, Stop ■ while working, Allow ✓ while waiting for approval.
+    private var primaryButton: some View {
+        let stopping = model.isBusy && !model.awaitingApproval
+        let symbol = model.awaitingApproval ? "checkmark" : (stopping ? "stop.fill" : "arrow.up")
+        let active = canSend || model.isBusy
+        return Button {
+            if stopping { model.cancel() } else { model.send() }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(active ? accent : Color.secondary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .disabled(!active)
+        .animation(.easeOut(duration: 0.15), value: symbol)
     }
 
     private var answerText: some View {
@@ -203,46 +240,5 @@ struct QuickBarView: View {
             .fill(.regularMaterial)
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.1)))
             .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
-    }
-}
-
-/// Local model over Ollama's HTTP API (127.0.0.1, so no ATS exception needed).
-enum Ollama {
-    // ponytail: model name via `defaults write com.pindopro.PinDo model <name>`; real settings UI in M7.
-    static var model: String { UserDefaults.standard.string(forKey: "model") ?? "maternion/mai-ui:2b" }
-    private static let url = URL(string: "http://127.0.0.1:11434/api/chat")!
-    private static let system = "You are PinDo, a friendly Mac assistant. Answer in 1–3 short sentences unless asked for more."
-
-    /// Loads the model and keeps it resident (keep_alive -1), so the first real question isn't a cold start.
-    static func warm() async throws {
-        _ = try await URLSession.shared.data(for: request(["model": model, "messages": [], "keep_alive": -1]))
-    }
-
-    static func chat(_ prompt: String, onToken: (String) -> Void) async throws {
-        let body: [String: Any] = [
-            "model": model, "stream": true, "keep_alive": -1,
-            "messages": [["role": "system", "content": system], ["role": "user", "content": prompt]],
-        ]
-        let (bytes, response) = try await URLSession.shared.bytes(for: request(body))
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-        for try await line in bytes.lines {
-            try Task.checkCancellation()
-            if let chunk = try? JSONDecoder().decode(Chunk.self, from: Data(line.utf8)), let text = chunk.message?.content {
-                onToken(text)
-            }
-        }
-    }
-
-    private struct Chunk: Decodable {
-        struct Message: Decodable { let content: String }
-        let message: Message?
-    }
-
-    private static func request(_ body: [String: Any]) throws -> URLRequest {
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
-        return req
     }
 }

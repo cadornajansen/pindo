@@ -7,7 +7,7 @@ public sealed class OrganizationApplyTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-apply-" + Guid.NewGuid().ToString("N"));
     public OrganizationApplyTests() { Directory.CreateDirectory(root); Directory.CreateDirectory(At("sorted")); }
     public void Dispose() => Directory.Delete(root, recursive: true);
-    private string At(string name) => Path.Combine(root, name);
+    private string At(string name) => Path.GetFullPath(Path.Combine(root, name));
     private async Task<OrganizationPlan> Preview(TimeProvider? clock = null)
     {
         File.WriteAllText(At("a.txt"), "alpha"); File.WriteAllText(At("b.txt"), "bravo");

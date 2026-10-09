@@ -10,6 +10,7 @@ public sealed class TargetContextWatcher : IDisposable
 {
     private readonly Dispatcher _dispatcher;
     private readonly Action<string> _invalidated;
+    private readonly Action<string>? _log;
     private readonly WinEvent _callback;
     private readonly List<nint> _hooks = [];
     private readonly DispatcherTimer _debounce;
@@ -20,9 +21,9 @@ public sealed class TargetContextWatcher : IDisposable
     public bool IsValid => _context?.IsFresh == true && !_layoutChanged &&
         NativeMethods.GetForegroundWindow() == _context.Hwnd;
 
-    public TargetContextWatcher(Dispatcher dispatcher, Action<string> invalidated)
+    public TargetContextWatcher(Dispatcher dispatcher, Action<string> invalidated, Action<string>? log = null)
     {
-        _dispatcher = dispatcher; _invalidated = invalidated; _callback = OnEvent;
+        _dispatcher = dispatcher; _invalidated = invalidated; _callback = OnEvent; _log = log;
         _debounce = new DispatcherTimer(TimeSpan.FromMilliseconds(120), DispatcherPriority.Background,
             (_, _) => Validate(), dispatcher);
         _debounce.Stop();
@@ -66,11 +67,16 @@ public sealed class TargetContextWatcher : IDisposable
     {
         _debounce.Stop();
         if (_context is not { } context) return;
+        nint foreground = NativeMethods.GetForegroundWindow();
+        NativeMethods.GetWindowThreadProcessId(foreground, out uint foregroundProcess);
+        // Composer controls belong to this session; interacting with them is not an app switch.
+        if (foregroundProcess == Environment.ProcessId && context.IsFresh && !_layoutChanged) return;
         string? reason = !context.IsFresh ? "WindowGeometryChanged" :
-            NativeMethods.GetForegroundWindow() != context.Hwnd ? "ForegroundChanged" :
+            foreground != context.Hwnd ? "ForegroundChanged" :
             _layoutChanged ? "LayoutChanged" : null;
         _layoutChanged = false;
         if (reason is null) return;
+        _log?.Invoke($"TargetContextChanged Reason={reason} ExpectedHwnd={context.Hwnd} ForegroundHwnd={foreground} ExpectedPid={context.ProcessId} ForegroundPid={foregroundProcess} ExpectedBounds={context.Bounds} CurrentBounds={TargetWindowContext.Capture(context.Hwnd)?.Bounds}");
         Clear(); _invalidated(reason);
     }
 

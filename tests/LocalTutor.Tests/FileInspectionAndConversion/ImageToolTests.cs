@@ -269,8 +269,12 @@ public sealed class ImageToolTests : IDisposable
         string input = PathFor("profiled.png"), output = PathFor("output.png");
         await File.WriteAllBytesAsync(input, Png(profile: true));
         var inspection = await new InspectFileTool(Scope(input), Codec).ExecuteAsync(new(input));
-        // This deliberately incomplete profile is not a valid color-managed image.
-        Assert.False(inspection.Success);
+        // Decoder versions differ in rejecting this incomplete profile. Neither may offer conversion.
+        if (inspection.Success)
+        {
+            Assert.Empty(inspection.Value!.SupportedNextActions);
+            Assert.Contains(inspection.Value.Warnings, warning => warning.Contains("ICC", StringComparison.Ordinal));
+        }
         var conversion = await new ConvertImageTool(Scope(input, output), Codec).ExecuteAsync(new(input, output, ImageFormat.Png));
         Assert.False(conversion.Success);
         Assert.Contains("UnsupportedColor", conversion.Error);

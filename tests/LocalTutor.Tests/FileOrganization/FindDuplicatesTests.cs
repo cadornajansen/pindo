@@ -7,7 +7,7 @@ public sealed class FindDuplicatesTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-duplicates-" + Guid.NewGuid().ToString("N"));
     public FindDuplicatesTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, recursive: true);
-    private string At(string name) => Path.Combine(root, name);
+    private string At(string name) => Path.GetFullPath(Path.Combine(root, name));
     private void Write(string name, string content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(At(name))!); File.WriteAllText(At(name), content);

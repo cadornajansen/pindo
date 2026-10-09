@@ -17,6 +17,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\src\LocalTutor.Tools\LocalTutor.Tools.csproj" />
       <Using Remove="System.Windows.Forms" />
       <Using Remove="System.Drawing" />
       <PackageReference Include="AWSSDK.BedrockRuntime" Version="4.0.101.7" />

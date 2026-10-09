@@ -26,7 +26,14 @@ public sealed record PlannerOutcome(string Kind, string Message, PlannedStep[] S
     }
 }
 
-public sealed record GoalVerification(bool Matched, string Evidence);
+public sealed record GoalVerification(bool Matched, string Evidence)
+{
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(Evidence) || Evidence.Length > 2000)
+            throw new InvalidOperationException("Verification returned no usable evidence.");
+    }
+}
 
 public sealed class GoalSession
 {

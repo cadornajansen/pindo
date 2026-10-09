@@ -6,7 +6,7 @@ A Windows-native software tutor for Filipino educators. The user performs action
 
 Open **`Pointly.sln`** in Rider. `Pointly.App` is the active desktop implementation, imported from the existing Pointly working tree on October 9, 2026. Its product name and tray icon already say Pindo; internal Pointly project names are retained to keep the import verifiable.
 
-The earlier `LocalTutor.slnx`, `src/`, and `tests/` remain intact as a separate scaffold. They are not connected to Pointly. Do not run both apps at once: their global shortcuts can collide.
+The active desktop app references the Core/Tools libraries under `src/`, integrated from PR #2 with its history preserved. `LocalTutor.slnx` also contains the earlier scaffold app; use `Pointly.sln` to run Pindo. Do not run both desktop apps at once: their global shortcuts can collide.
 
 Requirements: Windows 11 build 26100 or newer for this baseline, and the .NET 10 SDK. The project targets `net10.0-windows10.0.26100.0`; other Windows versions are unverified.
 
@@ -34,7 +34,20 @@ The imported code includes window tracking, UI Automation, Windows.Graphics.Capt
 
 The selected local candidate is **MAI-UI-2B**, community Ollama package `maternion/mai-ui:2b`. The user is managing its download. Installing it does not wire it into this app. No benchmark result is claimed yet.
 
-Next checkpoint: test screenshot grounding with MAI-UI-2B, then implement its local provider boundary. No model download, app launch, or cloud API call is triggered by these build/test commands.
+This pass adds cloud goal planning, step-by-step verification, animated annotations and reviewed chat tools. See [live tutoring setup, execution flow and validation](docs/LIVE_TUTORING.md). While thinking, inputs are disabled; Cancel, Escape and Ctrl+Space remain available. Check again captures fresh state and does not skip verification.
+
+Use **+** to select files and a workspace, then ask for an operation. Review its proposed inputs and outputs and explicitly click **Run**. Existing outputs are never overwritten. Duplicate detection only reports matches. Document/media conversion, media compression and PDF optimization remain unavailable.
+
+Install and configure the tools' public Windows dependencies once:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-ToolDependencies.ps1 -Install
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj
+```
+
+Restart Pindo after configuring dependencies. Run the setup script without `-Install` to check installed dependencies. Normal test commands do not call cloud APIs; live acceptance tests are opt-in.
+
+Local model testing comes after this pass. Qwen3-1.7B may be tested for text planning/tool selection; screenshot understanding still needs a vision model. No local inference result is claimed.
 
 ## Repository and disclosure
 

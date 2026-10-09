@@ -52,14 +52,20 @@
                          AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="96" MaxLength="2000"
                          VerticalScrollBarVisibility="Auto" TextChanged="OnQuestionChanged"/>
             </Grid>
+            <TextBlock x:Name="Selection" Visibility="Collapsed" FontSize="11" Foreground="#B8B8B8"
+                       TextWrapping="Wrap" MaxHeight="44" Margin="0,5,0,0"/>
             <Grid Margin="0,3,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="State" FontSize="11" Foreground="#B8B8B8" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="SelectButton" Style="{StaticResource IconButton}" Click="OnSelect" ToolTip="Select files or workspace"
+                            AutomationProperties.Name="Select files or workspace">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="15"/>
+                    </Button>
                     <Button x:Name="ClearButton" Style="{StaticResource IconButton}" Click="OnClear" ToolTip="Clear question"
                             AutomationProperties.Name="Clear question">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="15"/>
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74D;" FontSize="14"/>
                     </Button>
                     <Button x:Name="CancelButton" Visibility="Collapsed" Style="{StaticResource IconButton}"
                             Click="OnCancel" ToolTip="Cancel" AutomationProperties.Name="Cancel">

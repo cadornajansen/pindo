@@ -1,5 +1,7 @@
 # Implementation notes
 
+October 10 update: PR #2's implemented tools are now referenced by the active Pointly WPF app through a host-owned review/approval dispatcher. The earlier scaffold and Linux validation details below are retained as history. Current Windows launch instructions, versions, tests and limits are in [LIVE_TUTORING.md](LIVE_TUTORING.md) and the repository README.
+
 Product boundaries and acceptance criteria live in [product scope](PRODUCT_SCOPE.md) and [PRD](PRD.md). See [data model/ERD](DATA_MODEL.md) for the runtime objects and [validation plan](VALIDATION_PLAN.md) for planned evidence. These docs do not change the code or add persistence.
 
 ## Components and dependencies

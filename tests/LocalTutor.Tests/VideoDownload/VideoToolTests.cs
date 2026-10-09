@@ -336,6 +336,18 @@ public sealed class VideoToolTests : IDisposable
         Assert.Empty((await new InspectVideoTool(Client, Url).ExecuteAsync(new InspectVideoInput(Url))).Value!.Formats);
     }
 
+    [Theory]
+    [InlineData("ffmpeg version 9.0.1-full_build-www.gyan.dev Copyright", true)]
+    [InlineData("ffmpeg version 9.0.1 fixture", true)]
+    [InlineData("ffmpeg version 9.0.10 fixture", false)]
+    public async Task FfmpegReleaseAllowsPackagingSuffixButNotDifferentPatch(string version, bool accepted)
+    {
+        process.FfmpegVersion = version;
+        var result = await new InspectVideoTool(Client, Url).ExecuteAsync(new InspectVideoInput(Url));
+        Assert.Equal(accepted, result.Success);
+        Assert.Equal(accepted ? 1 : 0, process.Inspections);
+    }
+
     [Fact]
     public async Task FfmpegVersionMismatchIsReportedBeforeSourceAccess()
     {

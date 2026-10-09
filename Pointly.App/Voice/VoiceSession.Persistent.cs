@@ -246,9 +246,13 @@ public sealed partial class VoiceSession
                 if (final.Task.IsCompleted) return await final.Task;
                 if (_muted) return null;
                 if (receive.IsCompleted) { await receive; throw new VoiceException("STT", "StreamEndedUnexpectedly"); }
-                if (!Volatile.Read(ref hasPartial)) return null;
-                // A step may resolve while the user is talking. Defer narration until the utterance commits.
-                await Task.WhenAny(receive, final.Task, pulse).WaitAsync(token);
+                // An unmute pulse alone must not discard the newly opened speech connection.
+                if (queue.Reader.TryPeek(out _))
+                {
+                    if (!Volatile.Read(ref hasPartial)) return null;
+                    // A step may resolve while the user is talking. Defer narration until the utterance commits.
+                    await Task.WhenAny(receive, final.Task, pulse).WaitAsync(token);
+                }
             }
         }
         finally

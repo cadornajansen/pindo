@@ -28,7 +28,10 @@ public sealed class YtDlpClient
         if ((await Process.VersionAsync(cancellationToken)).Trim() != SupportedVersion)
             throw new VideoToolException("VersionMismatch: install and verify the pinned yt-dlp " + SupportedVersion + " release.");
         string? ffmpegVersion = await Process.FfmpegVersionAsync(cancellationToken);
-        if (ffmpegVersion is not null && !ffmpegVersion.StartsWith("ffmpeg version " + SupportedFfmpegVersion + " ", StringComparison.Ordinal))
+        string ffmpegPrefix = "ffmpeg version " + SupportedFfmpegVersion;
+        if (ffmpegVersion is not null &&
+            !ffmpegVersion.StartsWith(ffmpegPrefix + " ", StringComparison.Ordinal) &&
+            !ffmpegVersion.StartsWith(ffmpegPrefix + "-", StringComparison.Ordinal))
             throw new VideoToolException("VersionMismatch: configure the pinned FFmpeg " + SupportedFfmpegVersion + " release or omit optional FFmpeg configuration.");
         await VideoUrl.CheckNetworkAsync(url, resolve, cancellationToken);
         return VideoMetadata.Parse(await Process.InspectAsync(url, cancellationToken), url, ffmpegVersion is not null);

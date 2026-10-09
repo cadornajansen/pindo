@@ -12,7 +12,7 @@ public sealed class ArchiveToolTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-zip-tests-" + Guid.NewGuid().ToString("N"));
     public ArchiveToolTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, recursive: true);
-    private string At(string name) => Path.Combine(root, name);
+    private string At(string name) => Path.GetFullPath(Path.Combine(root, name));
     private ArchiveAccessScope Scope(string[] inputs, string output) => new(root, inputs, [output]);
 
     private void Write(string name, string text)

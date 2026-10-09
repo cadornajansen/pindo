@@ -57,13 +57,14 @@ public partial class MainWindow : Window
         _presenter.MicrophoneRequested += OnMicrophoneRequested;
         _presenter.DismissRequested += () => DismissSession("EscapePressed");
         _presenter.CheckRequested += OnCheckGoal;
+        _presenter.SelectionRequested += OnSelectFiles;
         _targetWatcher = new TargetContextWatcher(Dispatcher, reason =>
         {
             ReplaceGuidance(reason);
             if (_goal.Active) PauseGoal("The window changed. Return to the target app and select Check again.");
             else _presenter.ShowInstruction("The window changed. Ask again to locate a fresh target.");
             Log($"TargetInvalidated Reason={reason}");
-        });
+        }, Log);
         _tutor = new TutorService(_tutorModel);
         _visionModel = GuiGroundingModelFactory.CreateConfigured(out string? providerWarning);
         _vision = new GuiGroundingService(_visionModel);
@@ -325,7 +326,7 @@ public partial class MainWindow : Window
         return await await Dispatcher.InvokeAsync(async () =>
         {
             ForegroundWindowInfo? info = _foreground.TryGetForegroundInfo();
-            if (info?.ProcessId == Environment.ProcessId) info = RestoreComposerTarget();
+            if (info is null) info = RestoreComposerTarget();
             if (info is null) throw new VoiceException("Processing", "NoForegroundWindow");
             return await ProcessGoalAsync(info, transcript, cancellationToken);
         });
@@ -439,7 +440,7 @@ public partial class MainWindow : Window
                 _stepVerification.StartKey(step.ExpectedVirtualKey!.Value, info.Hwnd,
                     step.PostActionState, CurrentWalkthroughForeground, _walkthroughCancellation!.Token);
                 StatusText.Text = $"Step {stepIndex + 1} of {snapshot.Definition.Steps.Count}: {step.Instruction}";
-                _presenter.ShowInstruction(step.Instruction);
+                _presenter.ShowInstruction($"Step {stepIndex + 1} of {snapshot.Definition.Steps.Count}: {step.Instruction}");
                 SpeakWalkthroughInstruction(step.Instruction, _walkthroughCancellation.Token);
                 return;
             }
@@ -491,6 +492,7 @@ public partial class MainWindow : Window
 
     private void CancelWalkthrough(string reason)
     {
+        StopVisualTextObservation();
         WalkthroughSnapshot? current = _walkthrough.Current;
         if (current?.Status != WalkthroughStatus.Running) return;
         _targetWatcher.Clear();
@@ -649,11 +651,13 @@ public partial class MainWindow : Window
                         EnsureForegroundUnchanged(info);
                         WalkthroughStep? walkthroughStep = walkthroughAttempt is not null
                             ? _walkthrough.Current?.CurrentStep : null;
+                        bool readableInput = true;
                         if (walkthroughStep?.ActionType == WalkthroughActionType.TextEntry)
                         {
                             string? currentValue = await _uiStateVerifier.ReadTargetValueAsync(
                                 info.Hwnd, selected.RuntimeId, cancellationToken);
-                            if (currentValue is null)
+                            readableInput = currentValue is not null;
+                            if (currentValue is null && !_goal.Active)
                                 throw new InvalidOperationException("The intended input does not expose a UIA value.");
                             EnsureAttemptCurrent(walkthroughAttempt, cancellationToken);
                             EnsureForegroundUnchanged(info);
@@ -665,7 +669,8 @@ public partial class MainWindow : Window
                         if (walkthroughStep?.ActionType == WalkthroughActionType.TextEntry)
                         {
                             _activeWalkthroughTarget = walkthroughAttempt;
-                            _stepVerification.StartText(info.Hwnd, walkthroughStep.ExpectedText,
+                            if (!readableInput) ObserveVisualText(info);
+                            else _stepVerification.StartText(info.Hwnd, walkthroughStep.ExpectedText,
                                 token => _uiStateVerifier.ReadTargetValueAsync(info.Hwnd, selected.RuntimeId, token,
                                     requireFocus: true),
                                 walkthroughStep.PostActionState, CurrentWalkthroughForeground,
@@ -698,7 +703,7 @@ public partial class MainWindow : Window
                 Log("No actionable UIA candidates; routing to vision.");
             }
 
-            if (requiresUiaText)
+            if (requiresUiaText && !_goal.Active)
                 throw new InvalidOperationException("Text entry requires a readable UIA input target.");
             phase = "vision grounding";
             await GroundWithVisionAsync(info, userQuery, candidates, captureTask, total, cancellationToken,
@@ -873,7 +878,9 @@ public partial class MainWindow : Window
                 fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.", windowBounds: info.Context?.Bounds);
             StatusText.Text = fixedInstruction ?? response.Instruction ?? $"Look for '{response.TargetLabel}'.";
             onInstruction?.Invoke(response.Instruction ?? $"Look for '{response.TargetLabel}'.");
-            StartClickVerification(info, coordinates.PhysicalScreenBounds,
+            if (_goal.Active && walkthroughAttempt is not null && _walkthrough.Current?.CurrentStep?.ActionType == WalkthroughActionType.TextEntry)
+                ObserveVisualText(info);
+            else StartClickVerification(info, coordinates.PhysicalScreenBounds,
                 response.BoundingBox is null, cancellationToken, walkthroughAttempt);
             if (walkthroughAttempt is { } attempt)
                 Log($"WalkthroughStepResolved StepId={_walkthrough.Current!.Definition.Steps[attempt.StepIndex].Id} Route=VISION Provider={_visionModel.ProviderName}");
@@ -937,6 +944,7 @@ public partial class MainWindow : Window
         if (current?.Hwnd != original.Hwnd || current.ProcessId != original.ProcessId ||
             original.Context?.Matches(current.Context) == false)
         {
+            Log($"ForegroundMismatch Expected={original.ProcessName}/{original.Hwnd} Actual={current?.ProcessName ?? "Pindo or unavailable"}/{current?.Hwnd} GeometryMatch={original.Context?.Matches(current?.Context)}");
             throw new InvalidOperationException("Foreground context changed; invoke Pointly again in the target application.");
         }
     }
@@ -1112,6 +1120,7 @@ public partial class MainWindow : Window
 
     private void ReplaceGuidance(string reason)
     {
+        StopVisualTextObservation();
         _targetWatcher.Clear();
         _goalWork?.Cancel();
         _invocation?.Cancel();

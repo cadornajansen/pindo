@@ -17,6 +17,33 @@ public partial class MainWindow
     private CancellationTokenSource? _goalWork;
     private bool _acceptingVerifiedGoal;
     private bool _checkingGoal;
+    private LowLevelKeyboardHook? _visualTextHook;
+    private System.Windows.Threading.DispatcherTimer? _visualTextDelay;
+
+    private void StopVisualTextObservation()
+    {
+        _visualTextDelay?.Stop();
+        _visualTextDelay = null;
+        _visualTextHook?.Dispose();
+        _visualTextHook = null;
+    }
+
+    private void ObserveVisualText(ForegroundWindowInfo info)
+    {
+        StopVisualTextObservation();
+        _visualTextDelay = new() { Interval = TimeSpan.FromMilliseconds(1200) };
+        _visualTextDelay.Tick += async (_, _) =>
+        {
+            _visualTextDelay?.Stop();
+            if (_goalWork is null && _invocation is null) await VerifyGoalStepAsync(false);
+        };
+        _visualTextHook = new LowLevelKeyboardHook((_, hwnd) =>
+        {
+            if (hwnd != info.Hwnd) return;
+            Dispatcher.BeginInvoke(() => { _visualTextDelay?.Stop(); _visualTextDelay?.Start(); });
+        });
+        _visualTextHook.Start();
+    }
 
     private async Task<string?> ProcessGoalAsync(ForegroundWindowInfo info, string question, CancellationToken token)
     {
@@ -90,7 +117,7 @@ public partial class MainWindow
                     StartWalkthrough(info, new WalkthroughDefinition($"goal-{identity}", _goal.Goal, steps));
                     break;
                 case "tool":
-                    await PresentToolProposalAsync(outcome.Tool!, operation.Token);
+                    await PresentToolProposalAsync(outcome.Tool!, CancellationToken.None);
                     break;
                 case "complete":
                     // A planner conclusion alone cannot complete an unverified goal.
@@ -108,6 +135,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             Log($"GoalPlanningFailed Reason={ex.GetType().Name}");
+            if (ex is InvalidOperationException) Log($"GoalPlanningDetail={ex.Message}");
             if (_goal.IsCurrent(identity)) PauseGoal("Couldn't plan the next step. Select Check again to retry.");
         }
         finally
@@ -151,6 +179,8 @@ public partial class MainWindow
     {
         if (_checkingGoal || _walkthrough.Current is not { CurrentStep: { } step } snapshot || !_goal.Active) return;
         _checkingGoal = true;
+        long identity = _goal.Identity;
+        StopVisualTextObservation();
         _activeWalkthroughTarget = null;
         _targetWatcher.Clear();
         _stepVerification.Cancel("CheckingGoalState");
@@ -175,7 +205,7 @@ public partial class MainWindow
                 completed = _goal.Completed.ToArray(), elements = observation.Elements, finalStep
             }, png, operation.Token);
             operation.Token.ThrowIfCancellationRequested();
-            if (!_walkthrough.IsCurrent(snapshot.SessionId, snapshot.StepIndex)) return;
+            if (!_goal.IsCurrent(identity) || !_walkthrough.IsCurrent(snapshot.SessionId, snapshot.StepIndex)) return;
             EnsureForegroundUnchanged(current!);
             _presenter.SetBusy(false);
             if (result.Matched)
@@ -200,10 +230,15 @@ public partial class MainWindow
             {
                 _goal.AwaitingClarification = true;
                 PauseGoal("Not verified: " + result.Evidence + " Select Check again after the action, or tell me what changed.");
+                if (step.ActionType == WalkthroughActionType.TextEntry) ObserveVisualText(current!);
             }
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { Log($"GoalVerificationFailed Reason={ex.GetType().Name}"); PauseGoal("Couldn't verify the result. Select Check again to retry."); }
+        catch (Exception ex)
+        {
+            Log($"GoalVerificationFailed Reason={ex.GetType().Name}");
+            if (_goal.IsCurrent(identity)) PauseGoal("Couldn't verify the result. Select Check again to retry.");
+        }
         finally
         {
             if (png is not null) Array.Clear(png);
@@ -212,15 +247,12 @@ public partial class MainWindow
         }
     }
 
-    private Task NarrateGoalAsync(string message, CancellationToken token) => _voice.IsActive
-        ? _presenter.SpeakOnceAsync(message, token) : Task.CompletedTask;
-
-    // The tools checkpoint replaces these with the registered local catalog and reviewed execution.
-    private object ToolCatalogForPlanner() => Array.Empty<string>();
-    private object ToolSelectionForPlanner() => Array.Empty<string>();
-    private Task PresentToolProposalAsync(ToolProposal proposal, CancellationToken token)
+    private Task NarrateGoalAsync(string message, CancellationToken token)
     {
-        _presenter.ShowInstruction("Select a supported local tool after the tools checkpoint is installed.");
+        // The persistent voice loop processes this turn before draining its narration queue.
+        // Awaiting that queue here would deadlock a spoken clarification.
+        if (_voice.IsActive) _ = SpeakWalkthroughInstructionAsync(message, token);
         return Task.CompletedTask;
     }
+
 }

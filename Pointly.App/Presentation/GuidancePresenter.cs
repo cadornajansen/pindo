@@ -18,11 +18,13 @@ public sealed class GuidancePresenter : IDisposable
     private bool _microphoneOn;
     private bool _busy;
     private bool _canCheck;
+    private string _selection = "";
     public Func<string, CancellationToken, Task>? Narrate { get; set; }
     public event Action<string>? QuestionSubmitted;
     public event Action? MicrophoneRequested;
     public event Action? DismissRequested;
     public event Action? CheckRequested;
+    public event Action? SelectionRequested;
     public bool IsVisible => _lifetime.Visible;
 
     public GuidancePresenter(Action<string> log) => _log = log;
@@ -66,12 +68,14 @@ public sealed class GuidancePresenter : IDisposable
             _chat.MicrophoneRequested += () => MicrophoneRequested?.Invoke();
             _chat.DismissRequested += () => DismissRequested?.Invoke();
             _chat.CheckRequested += () => CheckRequested?.Invoke();
+            _chat.SelectionRequested += () => SelectionRequested?.Invoke();
         }
         _chat.SetInstruction(presentation.Instruction);
         _chat.SetState(_state);
         _chat.SetMicrophoneState(_microphoneOn);
         _chat.SetBusy(_busy);
         _chat.SetCanCheck(_canCheck);
+        _chat.SetSelection(_selection);
         _chat.Present(monitor);
         if (_surface is null || _surface.Monitor != monitor)
         {
@@ -91,6 +95,7 @@ public sealed class GuidancePresenter : IDisposable
         if (busy && _captureDepth == 0 && _current is { } current) Show(current);
     }
     public void SetCanCheck(bool canCheck) { _canCheck = canCheck; _chat?.SetCanCheck(canCheck); }
+    public void SetSelection(string selection) { _selection = selection; _chat?.SetSelection(selection); }
     public void ShowPartial(string partial) => _chat?.SetPartial(partial);
     public void SetMicrophoneState(bool isOn) { _microphoneOn = isOn; _chat?.SetMicrophoneState(isOn); }
     public void HideInput() => _chat?.Hide();

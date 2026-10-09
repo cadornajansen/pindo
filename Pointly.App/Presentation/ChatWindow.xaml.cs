@@ -12,10 +12,12 @@ public partial class ChatWindow : Window
     private MonitorGeometry? _monitor;
     private bool _exitRequested;
     private bool _busy;
+    private bool _canCheck;
     public event Action<string>? QuestionSubmitted;
     public event Action? MicrophoneRequested;
     public event Action? DismissRequested;
     public event Action? CheckRequested;
+    public event Action? SelectionRequested;
 
     public ChatWindow()
     {
@@ -38,14 +40,14 @@ public partial class ChatWindow : Window
         bool entrance = !IsVisible;
         if (entrance) Show();
         PositionOnMonitor();
-        if (entrance) AnimateEntrance();
+        if (entrance) AnimateEntrance(animate: !_busy);
         if (focusInput)
         {
             NativeMethods.SetForegroundWindow(new WindowInteropHelper(this).Handle);
             Activate();
             Dispatcher.BeginInvoke(() =>
             {
-                if (!IsVisible) return;
+                if (!IsVisible || _busy || NativeMethods.GetForegroundWindow() != new WindowInteropHelper(this).Handle) return;
                 Question.Focus();
                 Keyboard.Focus(Question);
             }, System.Windows.Threading.DispatcherPriority.Input);
@@ -64,13 +66,13 @@ public partial class ChatWindow : Window
         DesktopGeometry.SetWindowPos(hwnd, (nint)(-1), x, y, width, height, 0x0010);
     }
 
-    private void AnimateEntrance()
+    private void AnimateEntrance(bool animate)
     {
         Card.BeginAnimation(OpacityProperty, null);
         EntranceMotion.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, null);
         Card.Opacity = 1;
         EntranceMotion.Y = 0;
-        if (!SystemParameters.ClientAreaAnimation) return;
+        if (!animate || !SystemParameters.ClientAreaAnimation) return;
         var duration = TimeSpan.FromMilliseconds(220);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         Card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration)
@@ -91,7 +93,8 @@ public partial class ChatWindow : Window
         _busy = busy;
         Question.IsEnabled = Send.IsEnabled = ClearButton.IsEnabled = MicrophoneButton.IsEnabled = !busy;
         CheckButton.IsEnabled = !busy;
-        CancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        SelectButton.IsEnabled = !busy;
+        CancelButton.Visibility = busy || _canCheck ? Visibility.Visible : Visibility.Collapsed;
         ThinkingBorder.Busy = busy;
     }
     internal void SetPartial(string text) => State.Text = "Listening: " + text;
@@ -136,8 +139,16 @@ public partial class ChatWindow : Window
     private void OnMicrophone(object sender, RoutedEventArgs e) => MicrophoneRequested?.Invoke();
     private void OnCancel(object sender, RoutedEventArgs e) => DismissRequested?.Invoke();
     private void OnCheck(object sender, RoutedEventArgs e) => CheckRequested?.Invoke();
+    private void OnSelect(object sender, RoutedEventArgs e) => SelectionRequested?.Invoke();
+    internal void SetSelection(string text)
+    {
+        Selection.Text = text;
+        Selection.ToolTip = text;
+        Selection.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
+    }
     internal void SetCanCheck(bool canCheck)
     {
+        _canCheck = canCheck;
         CheckButton.Visibility = canCheck ? Visibility.Visible : Visibility.Collapsed;
         CancelButton.Visibility = canCheck || _busy ? Visibility.Visible : Visibility.Collapsed;
     }

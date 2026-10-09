@@ -1,5 +1,11 @@
 # Chat composer visual QA
 
+## October 10 live tutoring pass
+
+Inspected actual WPF renders at the machine's 125% scale: `C:/Users/DDCic/AppData/Local/Temp/pindo-final-qa/thinking.png` and `annotations.png`. The composer preserves the gray rounded card, adds a narrow aquamarine border shine and disabled input, and keeps Cancel visible. The annotation render contains a window-bounded spotlight and a single field underline; a replacement target removes the old cue. Native checks confirmed capture exclusion (0x11), transparent hit testing, no focus steal after capture, cancellation cleanup and rejection of a late cancelled response. The live PowerPoint fixture exercised both arrow and input cues.
+
+The tool preview/result windows were also rendered during a real cloud ZIP proposal test. Cancel produced no output; Run produced the reviewed ZIP. Details and limitations are recorded in `docs/LIVE_TUTORING.md`. Motion duration is configured in code; frame timing and physical monitor/DPI transitions were not instrumented.
+
 final result: passed
 
 Scope: the supplied second image's chat component, not its Figma/editor or desktop background. The app remains native WPF.

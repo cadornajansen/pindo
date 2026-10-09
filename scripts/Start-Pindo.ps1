@@ -16,7 +16,8 @@ Remove-Item Env:POINTLY_DEBUG_PREVIEW, Env:POINTLY_DEBUG_WALKTHROUGH,
 if ($Preview) { $env:POINTLY_DEBUG_PREVIEW = 'true' }
 $env:POINTLY_GROUNDING_PROVIDER = 'openrouter'
 $env:POINTLY_VOICE_MODE = 'false'
-foreach ($name in @('ASSEMBLYAI_API_KEY', 'OPENROUTER_API_KEY', 'ELEVENLABS_API_KEY')) {
+foreach ($name in @('ASSEMBLYAI_API_KEY', 'OPENROUTER_API_KEY', 'ELEVENLABS_API_KEY',
+    'LOCAL_TUTOR_IMAGEMAGICK', 'LOCAL_TUTOR_POPPLER', 'LOCAL_TUTOR_YTDLP', 'LOCAL_TUTOR_FFMPEG')) {
     $savedKey = [Environment]::GetEnvironmentVariable($name, 'User')
     if (-not [string]::IsNullOrWhiteSpace($savedKey)) {
         [Environment]::SetEnvironmentVariable($name, $savedKey, 'Process')

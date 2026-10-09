@@ -5,6 +5,15 @@ namespace Pointly.Tests;
 
 public sealed class GoalSessionTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void VerificationNeedsEvidenceEvenWhenModelClaimsSuccess(bool matched)
+    {
+        Assert.Throws<InvalidOperationException>(() => new GoalVerification(matched, "").Validate());
+        new GoalVerification(matched, "The dialog shows three columns.").Validate();
+    }
+
     [Fact]
     public void ClarificationKeepsGoalAndVerifiedHistory()
     {

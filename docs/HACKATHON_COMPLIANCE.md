@@ -14,6 +14,8 @@ The original scaffold status below is retained as historical context. Its no-cop
 
 ## Briefing details to verify
 
+October 10 contribution update: the new pass adds shared cloud goal planning and clarification, observed-result verification, animated composer/annotations, and the PR #2 tools integration with host-owned approvals. PR #2's commit history is retained. ImageMagick, Poppler, yt-dlp and FFmpeg are installed public native dependencies; their tested versions and roles are recorded in [LIVE_TUTORING.md](LIVE_TUTORING.md). These changes remain cloud-backed; no local-inference claim is added. The historical scaffold statements below do not describe the current app.
+
 - Build day: October 9, 2026; deadline: **October 10, 2026, 10:00 AM Philippine Time (UTC+8)**, with no extensions.
 - Demo Day: October 10 at SM Makati; finalist format: 5-minute pitch/live demo and 3-minute Q&A.
 - Four registered human contributors; only registered members may contribute human development work.

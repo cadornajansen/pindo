@@ -33,7 +33,9 @@ public sealed class ImageMagickCodec
             throw new FileToolException("InvalidImage: the decoder did not return valid image metadata.");
         if (width < 1 || height < 1 || width > 8192 || height > 8192 || (long)width * height > ImageContent.MaxPixels)
             throw new FileToolException("ResourceLimit: images are limited to 8192 per side and 4 million pixels.");
-        bool alpha = values[4] is "srgba" or "rgba" or "graya" or "cmyka" || values[4].EndsWith("a", StringComparison.Ordinal);
+        // ImageMagick 7 appends a channel count (for example "srgba 4.0"); 6 returns only the name.
+        string channels = values[4].Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        bool alpha = channels is "srgba" or "rgba" or "graya" or "cmyka" || channels.EndsWith("a", StringComparison.Ordinal);
         return new ImageMetadata(width, height, alpha, values[5], ImageContent.HasColorProfile(bytes, format));
     }
 

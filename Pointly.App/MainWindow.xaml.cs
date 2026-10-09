@@ -78,6 +78,7 @@ public partial class MainWindow : Window
         _voice.ActivityChanged += activity => Dispatcher.BeginInvoke(() =>
         {
             if (_closed || !ReferenceEquals(activity, _voice.Activity)) return;
+            _presenter.SetBusy(activity.Processing || _invocation is not null);
             _presenter.SetMicrophoneState(activity.MicrophoneOn);
             _presenter.SetState(activity.MicrophoneOn ? "● Microphone on · Listening" :
                 activity.Speaking ? "Speaking · Microphone off" : activity.Processing ? "Thinking · Microphone off" :
@@ -283,6 +284,7 @@ public partial class MainWindow : Window
 
         using var invocation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         _invocation = invocation;
+        _presenter.SetBusy(true);
         Task<WindowCaptureResult?>? captureTask = null;
         try
         {
@@ -312,7 +314,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception) { }
             }
-            if (ReferenceEquals(_invocation, invocation)) _invocation = null;
+            if (ReferenceEquals(_invocation, invocation)) { _invocation = null; _presenter.SetBusy(false); }
         }
     }
 
@@ -345,6 +347,7 @@ public partial class MainWindow : Window
         using var invocation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         invocation.CancelAfter(TimeSpan.FromSeconds(60));
         _invocation = invocation;
+        _presenter.SetBusy(true);
         Task<WindowCaptureResult?>? captureTask = null;
         string? instruction = null;
         try
@@ -375,7 +378,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception) { }
             }
-            if (ReferenceEquals(_invocation, invocation)) _invocation = null;
+            if (ReferenceEquals(_invocation, invocation)) { _invocation = null; _presenter.SetBusy(false); }
         }
     }
 
@@ -422,6 +425,7 @@ public partial class MainWindow : Window
         using var invocation = CancellationTokenSource.CreateLinkedTokenSource(_walkthroughCancellation.Token);
         invocation.CancelAfter(TimeSpan.FromSeconds(60));
         _invocation = invocation;
+        _presenter.SetBusy(true);
         Task<WindowCaptureResult?>? captureTask = null;
         var total = Stopwatch.StartNew();
         WalkthroughSnapshot snapshot = _walkthrough.Current!;
@@ -478,7 +482,7 @@ public partial class MainWindow : Window
                 }
                 catch (Exception) { }
             }
-            if (ReferenceEquals(_invocation, invocation)) _invocation = null;
+            if (ReferenceEquals(_invocation, invocation)) { _invocation = null; _presenter.SetBusy(false); }
         }
     }
 

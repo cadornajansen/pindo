@@ -16,6 +16,7 @@ public sealed class GuidancePresenter : IDisposable
     private long _narratedIdentity;
     private int _captureDepth;
     private bool _microphoneOn;
+    private bool _busy;
     public Func<string, CancellationToken, Task>? Narrate { get; set; }
     public event Action<string>? QuestionSubmitted;
     public event Action? MicrophoneRequested;
@@ -65,6 +66,7 @@ public sealed class GuidancePresenter : IDisposable
         _chat.SetInstruction(presentation.Instruction);
         _chat.SetState(_state);
         _chat.SetMicrophoneState(_microphoneOn);
+        _chat.SetBusy(_busy);
         _chat.Present(monitor);
         if (_surface is null || _surface.Monitor != monitor)
         {
@@ -77,6 +79,12 @@ public sealed class GuidancePresenter : IDisposable
     }
 
     public void SetState(string state) { _state = state; _chat?.SetState(state); }
+    public void SetBusy(bool busy)
+    {
+        _busy = busy;
+        _chat?.SetBusy(busy);
+        if (busy && _captureDepth == 0 && _current is { } current) Show(current);
+    }
     public void ShowPartial(string partial) => _chat?.SetPartial(partial);
     public void SetMicrophoneState(bool isOn) { _microphoneOn = isOn; _chat?.SetMicrophoneState(isOn); }
     public void HideInput() => _chat?.Hide();
@@ -119,6 +127,7 @@ public sealed class GuidancePresenter : IDisposable
     public void CancelNarration() => _narration?.Cancel();
     public void Dismiss()
     {
+        SetBusy(false);
         _lifetime.Dismiss(); CancelNarration(); _current = null;
         _surface?.StopMotion(); _surface?.Hide();
         _chat?.Hide();

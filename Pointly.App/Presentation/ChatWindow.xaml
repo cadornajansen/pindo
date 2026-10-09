@@ -1,6 +1,7 @@
 <Window x:Class="Pointly.App.Presentation.ChatWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Pointly.App.Presentation"
         Title="Pindo" Width="428" SizeToContent="Height" MaxHeight="340"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False" ShowActivated="False"
@@ -32,7 +33,8 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Border x:Name="Card" Margin="12,26,12,12" Background="#383838"
+    <Grid Margin="12,26,12,12">
+    <Border x:Name="Card" Background="#383838"
             BorderBrush="#999999" BorderThickness="1" CornerRadius="16" Padding="20,13,12,8">
         <Border.RenderTransform><TranslateTransform x:Name="EntranceMotion"/></Border.RenderTransform>
         <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.3"/></Border.Effect>
@@ -53,9 +55,13 @@
                 <TextBlock x:Name="State" FontSize="11" Foreground="#B8B8B8" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Style="{StaticResource IconButton}" Click="OnClear" ToolTip="Clear question"
+                    <Button x:Name="ClearButton" Style="{StaticResource IconButton}" Click="OnClear" ToolTip="Clear question"
                             AutomationProperties.Name="Clear question">
                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="15"/>
+                    </Button>
+                    <Button x:Name="CancelButton" Visibility="Collapsed" Style="{StaticResource IconButton}"
+                            Click="OnCancel" ToolTip="Cancel" AutomationProperties.Name="Cancel">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE711;" FontSize="15"/>
                     </Button>
                     <Button x:Name="MicrophoneButton" Style="{StaticResource IconButton}" Click="OnMicrophone"
                             ToolTip="Turn microphone on" AutomationProperties.Name="Turn microphone on">
@@ -69,4 +75,6 @@
             </Grid>
         </StackPanel>
     </Border>
+    <local:BusyBorder x:Name="ThinkingBorder"/>
+    </Grid>
 </Window>

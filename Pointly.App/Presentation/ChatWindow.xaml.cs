@@ -11,6 +11,7 @@ public partial class ChatWindow : Window
 {
     private MonitorGeometry? _monitor;
     private bool _exitRequested;
+    private bool _busy;
     public event Action<string>? QuestionSubmitted;
     public event Action? MicrophoneRequested;
     public event Action? DismissRequested;
@@ -84,6 +85,13 @@ public partial class ChatWindow : Window
     }
 
     internal void SetState(string text) => State.Text = text;
+    internal void SetBusy(bool busy)
+    {
+        _busy = busy;
+        Question.IsEnabled = Send.IsEnabled = ClearButton.IsEnabled = MicrophoneButton.IsEnabled = !busy;
+        CancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        ThinkingBorder.Busy = busy;
+    }
     internal void SetPartial(string text) => State.Text = "Listening: " + text;
 
     internal void SetMicrophoneState(bool isOn)
@@ -114,6 +122,7 @@ public partial class ChatWindow : Window
 
     private void Submit()
     {
+        if (_busy) return;
         string question = Question.Text.Trim();
         if (question.Length == 0) return;
         Question.Clear();
@@ -123,6 +132,7 @@ public partial class ChatWindow : Window
     private void OnSend(object sender, RoutedEventArgs e) => Submit();
     private void OnClear(object sender, RoutedEventArgs e) { Question.Clear(); Question.Focus(); }
     private void OnMicrophone(object sender, RoutedEventArgs e) => MicrophoneRequested?.Invoke();
+    private void OnCancel(object sender, RoutedEventArgs e) => DismissRequested?.Invoke();
 
     internal void Exit() { _exitRequested = true; Close(); }
 

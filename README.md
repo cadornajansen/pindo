@@ -20,13 +20,13 @@ This is the **bootstrap milestone** for AppBuildersPH Hackathon 2026. The organi
 - Git; JetBrains Rider with .NET 10 support, or the .NET CLI.
 - Ollama is needed only for the next inference milestone; it was not installed on the bootstrap machine and no model was downloaded.
 
-Public repository: [cadornajansen/localtutor-hackathon](https://github.com/cadornajansen/localtutor-hackathon).
+Public repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
 
 Clone and verify:
 
 ```powershell
-git clone https://github.com/cadornajansen/localtutor-hackathon.git
-cd localtutor-hackathon
+git clone https://github.com/cadornajansen/pindo.git
+cd pindo
 dotnet restore LocalTutor.slnx
 dotnet build LocalTutor.slnx --no-restore
 dotnet test LocalTutor.slnx --no-build --no-restore

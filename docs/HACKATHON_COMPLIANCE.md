@@ -18,7 +18,7 @@ This checklist reflects the **team-supplied organizer briefing**. It is not an o
 | Disclose pre-existing code/assets | No previous application's source code or assets were copied into this project. Earlier experimentation informed the idea only. Keep reviewing new contributions. |
 | Disclose models, frameworks, libraries, APIs, and AI tools | Initial inventory below; update it for every added dependency or service. |
 | Human contributions only by registered members | Verify collaborator identities against registration; AI agents are development tools, not registered humans. |
-| Public GitHub repository | [cadornajansen/localtutor-hackathon](https://github.com/cadornajansen/localtutor-hackathon) created public; verify final submission source on `main` before the deadline. |
+| Public GitHub repository | [cadornajansen/pindo](https://github.com/cadornajansen/pindo) created public; verify final submission source on `main` before the deadline. |
 
 Prior cloud-model experiments are background research, not new local-model results. Their earlier structural-output and latency observations did not establish complete grounding accuracy. No screenshots, datasets, code, or assets from those experiments are included in this bootstrap.
 

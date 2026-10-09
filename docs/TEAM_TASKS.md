@@ -2,11 +2,11 @@
 
 Use one shared repository with direct collaborator access. The lead should invite the three registered members in **GitHub repository → Settings → Collaborators → Add people** after receiving their actual GitHub usernames. No invitations have been sent or usernames inferred.
 
-Public repository: [cadornajansen/localtutor-hackathon](https://github.com/cadornajansen/localtutor-hackathon).
+Public repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
 
 ```powershell
-git clone https://github.com/cadornajansen/localtutor-hackathon.git
-cd localtutor-hackathon
+git clone https://github.com/cadornajansen/pindo.git
+cd pindo
 dotnet restore LocalTutor.slnx
 dotnet build LocalTutor.slnx --no-restore
 dotnet test LocalTutor.slnx --no-build --no-restore

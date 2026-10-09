@@ -17,7 +17,7 @@
   "steps": [
     {
       "id": "open_insert",
-      "objective": "Ask the user to open the Insert menu in PowerPoint.",
+      "objective": "Open the Insert menu in PowerPoint.",
       "target": {
         "role": "menu",
         "semantic_name": "Insert"
@@ -25,12 +25,12 @@
       "expected_result": [
         "The Insert menu is visible and offers picture insertion."
       ],
-      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
-      "verification": "visual"
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+      "verification": "user_confirmation"
     },
     {
       "id": "open_picture",
-      "objective": "Ask the user to point to Picture in the Insert menu to reveal its submenu.",
+      "objective": "Point to Picture in the Insert menu to reveal its submenu.",
       "target": {
         "role": "menu_item",
         "semantic_name": "Picture"
@@ -38,12 +38,12 @@
       "expected_result": [
         "Picture source choices are visible."
       ],
-      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
-      "verification": "visual"
+      "why": "Local pictures come from a file dialog; online pictures require a separate source and network access. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+      "verification": "user_confirmation"
     },
     {
       "id": "choose_local_source",
-      "objective": "Ask the user to choose Picture From File.",
+      "objective": "Choose Picture From File.",
       "target": {
         "role": "menu_item",
         "semantic_name": "Picture From File"
@@ -56,7 +56,7 @@
     },
     {
       "id": "select_image",
-      "objective": "Ask the user to locate and select the intended local image.",
+      "objective": "Locate and select the intended local image.",
       "target": {
         "role": "file",
         "semantic_name": "The image identified by the user"
@@ -69,7 +69,7 @@
     },
     {
       "id": "insert_selected_image",
-      "objective": "Ask the user to choose Insert and inspect the current slide.",
+      "objective": "Choose Insert and inspect the current slide.",
       "target": {
         "role": "button",
         "semantic_name": "Insert"

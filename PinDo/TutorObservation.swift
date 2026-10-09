@@ -71,7 +71,10 @@ enum TutorCapture {
         guard let data = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.65]) else {
             throw CaptureError.unavailable("Could not encode the teaching window.")
         }
-        let text = String(AX.snapshot(pid: target.pid, appName: target.appName, task: task).prompt.prefix(12_000))
+        let snapshot = AX.snapshot(pid: target.pid, appName: target.appName, task: task)
+        let controls = snapshot.candidates.filter { !$0.id.hasPrefix("m") }.map(\.line).joined(separator: "\n")
+        let menus = snapshot.candidates.filter { $0.id.hasPrefix("m") }.map(\.line).joined(separator: "\n")
+        let text = String("Window controls (presence is not proof of completion):\n\(controls)\nMenu capabilities (may be CLOSED; not visibility evidence):\n\(menus)".prefix(12_000))
         var digest = SHA256()
         digest.update(data: data)
         digest.update(data: Data(text.utf8))

@@ -1,178 +1,84 @@
-# Application skills: first checkpoint
+# Application skills and Teach mode
 
-This repository remains the native macOS application. A Windows workstation can
-edit and check the skill data; it cannot build the AppKit/SwiftUI app or validate
-Finder, Preview, or PowerPoint for Mac.
+The app includes **109 macOS tasks across 15 application areas**, **330 task evaluation specifications**, and **15 shared runtime scenarios**. The extra Finder rename lesson separates renaming an existing item from creating a folder. All workflows remain **hands-on unverified**. Compilation and contract tests do not establish accuracy in a particular app version.
 
-This checkpoint implements the first three skills from the supplied plan. It
-does not complete the twelve-skill assignment or connect skills to inference.
+Windows can author and validate the data. Building or running the AppKit/SwiftUI application requires macOS. See [the Mac handoff](MAC_HANDOFF.md), [the catalogue](SKILL_CATALOGUE.md), and [the complete file inventory](CHANGED_FILES.md).
 
-| Skill ID | Evaluation ID | Documentation coverage | Hands-on status |
-| --- | --- | --- | --- |
-| `powerpoint.insert_image` | `eval.powerpoint.insert_image` | Microsoft 365, 2024, 2021 for Mac | unverified |
-| `finder.create_folder` | `eval.finder.create_folder` | Finder in macOS 26; includes rename recovery | unverified |
-| `preview.merge_pdfs` | `eval.preview.merge_pdfs` | Preview in macOS 15 and 26 | unverified |
+## Data flow
 
-Research date: **2026-10-10**. Sources are official Microsoft Support and Apple
-user guides, recorded in each skill's `sources` list with their URLs and dates.
-Prerequisites, expected observations, and evaluation failure conditions are
-derived from those procedures; they are not measured ground truth.
+```text
+skills/*.json + application_profiles.json
+  -> Python validation and deterministic bundle
+  -> PinDo/Resources/ApplicationSkills.json
+  -> SkillLibrary decodes the bundled data
+  -> Teach request + application identity -> matching tasks
+  -> user selects a task and supplies required details
+  -> TutorSession displays one step
+  -> activity -> debounce -> window image + Accessibility controls
+  -> local tutor returns instruction, status and evidence
+  -> host checks session, step, observation revision and target
+  -> advance one step, keep guiding, or pause
+```
 
-## Run the Windows checks
+With Teach disabled, `QuickBarModel.send()` retains the existing `Agent.run()` action path. With Teach enabled, it starts `TutorSession`. The teaching client has no executable-action response and never calls the action executor. It uses the read-only Accessibility snapshot helper and labels menu capabilities as potentially closed, not visibility evidence.
 
-From the repository root in PowerShell:
+`@Observable` makes session changes update SwiftUI. The main actor serializes UI state changes. Capture and network calls can suspend, but generation, step and observation counters must still match before a response can advance the lesson.
+
+## Version 2 contract
+
+The Python validator rejects unknown fields, duplicate JSON keys, duplicate IDs, broken references and unsupported verification methods. No schema dependency is needed. Version 1 remains readable for compatibility; runtime bundling requires version 2.
+
+Skills retain `id`, `application_id`, `application`, `platform`, `title`, `intents`, `prerequisites`, ordered `steps`, `success_criteria`, `recovery`, `constraints`, `sources` and `validation`.
+
+| Added field | Purpose |
+| --- | --- |
+| `surface` | Desktop or browser, separate from the macOS platform |
+| `difficulty` | Foundation, intermediate or advanced |
+| `concepts` | Named explanations of underlying ideas |
+| `inputs` | Named questions answered before beginning |
+| `requirements` | Version, access, account, plugin, network or media prerequisites |
+| `match_groups` | Every group must match; any whole phrase within a group can satisfy it |
+| `related_skills` | References to existing prerequisite or follow-up tasks |
+| step `why` | Reason for this step |
+| step `verification` | `visual` or `user_confirmation` |
+
+Each step has an objective, semantic target (`role`, `semantic_name`) and expected results. There are no saved coordinates or executable command fields. Terminal commands are teaching text for the user to review and enter.
+
+Profiles map internal application IDs to aliases, known bundle IDs and domains. Unknown bundle IDs are left empty. Browser matching checks exact domains or subdomains; a known website takes priority over its browser. Missing identity asks for application selection. Ambiguous task matches present choices; no match presents the application catalogue. Figma and Canva currently target their **web editors**, with their own account and network requirements.
+
+## Watching and progression
+
+- Watching begins only after the user starts the lesson. The panel stays visible during work in the target app.
+- Accessibility notifications and global input activity schedule a **750 ms debounce**. Input events are discarded; no key text is retained.
+- One capture/inference job runs at a time. Further activity invalidates the old response and schedules a fresh observation.
+- ScreenCaptureKit captures the selected window at a maximum 1280-pixel longest edge. Images stay in memory and go only to the existing loopback runtime.
+- Accepted image/text fingerprints suppress repeated inference on identical state.
+- Only the current step, task details, prerequisites, up to three recovery entries and final criteria enter a request. Accessibility text is capped at 12,000 characters; request and answers at 1,500 and 3,000; serialized task context at 25,000 bytes. The whole catalogue is never sent.
+- Automatic advancement requires `observed` and nonempty evidence for the current visual step. The trusted prompt requires every expected result. This remains a probabilistic visual judgment requiring Mac testing.
+- Listening, subjective review, exported-file integrity and menu-open states outside the capture require **I checked this result**. Confirmation works while paused so the user can inspect an output elsewhere.
+- Pause, Stop, closing the panel, target changes, permission failures, uncertainty and missing inputs prevent automatic progression. Resume takes a fresh observation. Details can be corrected while paused.
+- Teach mode saves no screenshots, Accessibility dumps or prompts. Timing and token counts remain in session memory for recording by the tester.
+
+Separate menus/popovers may be outside a window capture. Modal changes can pause a lesson; explicit Resume can adopt another window within the original app. Browser URL discovery uses the focused window's Accessibility document attribute; browser-title changes provide another signal. If neither distinguishes tabs, same-window tab changes cannot be reliably detected. Use an isolated practice window and record this limitation.
+
+## Author and validate
 
 ```powershell
-py -B tools/application_skills.py
+py -B tools/application_skills.py --bundle PinDo/Resources/ApplicationSkills.json
+py -B tools/application_skills.py --check-bundle PinDo/Resources/ApplicationSkills.json
 py -B -m unittest discover -s tests -v
 ```
 
-Use `python3` instead of `py` on a Mac with Python installed. There are no package
-dependencies or downloads. `-B` prevents Python from creating bytecode cache
-files. The validator also works outside the repository's working directory:
-it finds the default data root relative to its own file. `--root` can select a
-different library directory for a test.
+Use `python3` on Mac. Edit the task JSON, add English, Taglish and recovery cases, then regenerate the resource. Bundle checking detects source changes not packaged into the app. Xcode's synchronized `PinDo` group includes new Swift files and the JSON resource automatically.
 
-The first command must report **3 skills and 3 evaluation cases** and exit with
-code zero. A malformed file produces a filename/field error and a nonzero exit.
-The second command checks both valid records and deliberately invalid copies in
-temporary directories. Neither command runs a model or operates another app.
+Cases specify starting state, request, expected next action, results and failure criteria. They are specifications, not executions. `evaluations/fixtures/setups.json` supplies concrete practice setups. `tools/practice_assets.py` creates original PNG, SVG, PDF, CSV, WAV and text assets in a new directory, refusing to overwrite an existing session. The three original evaluation IDs are preserved alongside the three-per-task cases.
 
-## Version 1 data contract
+Python tests cover contracts, routing and packaging. The Swift executable tests the actual decoder, matching, domain boundaries, completion gate and stale-result predicate. GitHub also builds the native app and checks its packaged resource; it does not launch third-party applications.
 
-JSON fits the app's existing JSON model messages and can be read with Python's
-standard library now and Swift's JSON facilities in a later integration. The
-schema is enforced by `tools/application_skills.py`; there is no separate JSON
-Schema engine or second schema definition to keep synchronized.
+## Evidence boundaries
 
-Every record carries integer `schema_version: 1`. Unknown fields are rejected,
-including coordinate and executable-command fields. Required strings and string
-lists must be nonempty unless explicitly allowed below.
+Sources are official Microsoft, Apple, Image-Line, Adobe, CapCut, Figma and Canva documentation reviewed on 2026-10-10. Each task records URLs and dates. Some pages cover a feature family rather than every recovery detail; recovery guidance is a conservative interpretation, still unverified. Documented applicability is distinct from actual tested versions.
 
-Skill fields:
+All initial tested-version arrays are empty and case versions null. Mark verified only after a real run with exact versions and evidence. The Word citation reference applies specifically to Word 2019 for Mac; check newer layouts. CapCut build/region gates, Figma modes, Canva plan features, FL Studio editions/plugins and Adobe codecs require local confirmation.
 
-| Field | Meaning |
-| --- | --- |
-| `id` | Stable lowercase dotted task ID; unique across the library |
-| `application_id`, `application`, `platform` | Internal app identifier, display name, and `macos` or `windows` |
-| `title`, `intents` | Task title and English/Taglish request examples |
-| `prerequisites` | Conditions to confirm before guidance begins |
-| `steps` | Ordered objects with unique `id`, `objective`, `target`, and `expected_result` |
-| `target` within each step | Semantic `role` and `semantic_name`, never a saved location |
-| `success_criteria` | Observable evidence required to report completion |
-| `recovery` | Objects with a failure `condition` and user-facing `guidance` |
-| `constraints` | Guidance boundaries, including user-performed actions and fresh observations |
-| `sources` | Objects with `title`, HTTPS `url`, and ISO `research_date` |
-| `validation` | `status`, `documented_versions`, `tested_versions`, and `notes` |
-
-The application IDs are internal library names, **not** macOS bundle identifiers.
-A future host must explicitly map the detected app to them. Supporting `windows`
-in the schema permits a future separate workflow; it does not make these Mac
-records usable as Windows instructions.
-
-Evaluation fields:
-
-| Field | Meaning |
-| --- | --- |
-| `id`, `skill_id` | Unique evaluation ID and the existing skill it tests |
-| `application_id`, `platform` | Must agree with the referenced skill |
-| `application_version` | Actual version recorded for a run; `null` while untested |
-| `starting_state`, `user_instruction` | Required interface setup and the user's request |
-| `expected_next_action` | An `objective` and semantic `target` for the next user action |
-| `expected_result`, `failure_criteria` | Observable outcomes and reasons to fail |
-| `language` | `english` or `taglish` |
-| `validation` | `status` and `notes` |
-
-Statuses are `unverified`, `partially_verified`, or `verified`. Documentation
-review alone leaves a record **unverified**. Marking a skill partially or fully
-verified requires nonempty `tested_versions`; marking an evaluation that way
-requires `application_version`. These checks require metadata, but cannot prove
-that testing actually happened. Record the hands-on evidence in the notes.
-
-`documented_versions` means the source's applicability, not a compatibility
-promise. `tested_versions` should identify the actual application build and
-macOS version used. All initial tested-version lists are empty.
-
-The validator checks every skill has at least one linked evaluation, each step
-has an expected result, IDs are unique, sources are present, and nested records
-follow this contract. It does not establish workflow correctness, interpret
-arbitrary prose for safety, or prove model grounding accuracy.
-
-## Execution flow and integration boundary
-
-The implemented flow is deliberately small:
-
-1. `load_library(root)` finds local JSON files under `skills/` and
-   `evaluations/cases/`.
-2. It parses their contents as data and checks each record against version 1.
-3. It checks IDs, evaluation references, matching app/platform metadata, and
-   evaluation coverage.
-4. It returns the validated skill and case lists. The command-line entry point
-   prints their counts.
-
-Source URLs are provenance only; the loader never fetches them. No network,
-model, screen, keyboard, mouse, or shell execution is part of this flow.
-
-There is **no existing application-skills contract** in the Swift app.
-`QuickBarModel.send()` currently calls `Agent.run()`, which observes Mac
-Accessibility controls, calls `Ollama.nextAction()`, and executes the proposed
-action. The new library is not called from that path. That action executor is a
-different contract from this assignment's user-performed tutoring steps.
-
-The proposed future boundary is:
-
-```text
-instruction + detected application_id + platform
-  -> confident local skill match, or no match
-  -> one bounded procedural reference
-  -> tutor model + current live screen/Accessibility observations
-  -> explain the next user action
-  -> observe its result before advancing
-```
-
-App detection, intent matching, context size limits, and a teaching-only output
-contract still need implementation and coordination with the macOS developer.
-Never inject all skills, execute their prose, or attach them to the current
-action executor and assume it has become a tutor. Source content and live UI
-text remain untrusted data; the host's trusted instructions enforce behavior.
-Uncertain or unrelated matches should use the ordinary tutoring path without
-skill context. No inference code changed in this checkpoint.
-
-## Hands-on and model evaluation protocol
-
-On a test Mac, use synthetic documents and record exact app and OS versions.
-For each of these three priority cases:
-
-1. Confirm the starting state and follow each semantic step manually. Record
-   observed controls, expected results, interface differences, and final outcome.
-   Preview must duplicate every participating PDF before editing because it
-   autosaves, then verify the originals separately.
-2. Only after hands-on evidence supports a skill, run baseline A (no skill) and
-   B (that one skill) through a working teaching-only inference interface.
-3. Keep the model, parameters, instruction, screenshot/Accessibility snapshot,
-   and starting app state identical. Reset state between runs. Keep cold and
-   warm inference measurements separate.
-4. Record target accuracy, grounding accuracy, instruction accuracy, completion
-   verification, request-to-usable-guidance latency, added prompt tokens, and
-   malformed or unsupported responses. Use real control bounds for grounding;
-   if bounds or screenshots are unavailable, mark that metric unavailable.
-5. Preserve per-run evidence, sample counts, and failures. Report median and
-   P95 latency with the sample count; targets are median <=5 s and P95 <=10 s.
-   Compare added context and latency before claiming any improvement.
-
-Current results: **no hands-on validation, baseline runs, grounding measurements,
-token-overhead measurements, or inference latency measurements**. Passing the
-Python tests establishes data consistency only. The native macOS build was not
-run from this Windows machine.
-
-Automated checkpoint result on 2026-10-10: **3 skills and 3 cases validated;
-24 tests passed** with Python 3.14.6 on Windows. The tests include malformed
-records, duplicate JSON fields and IDs, coordinate/command fields, missing
-evaluation coverage, and unsupported claims of verification.
-
-## Remaining requested dataset
-
-The other nine skills and cases are pending: PowerPoint tables, slide layouts,
-and charts; Finder file organization and downloads; Preview PDF annotation and
-image conversion; Excel grade charts and totals/averages. This checkpoint stops
-before adding those records so the initial format and workflows can be reviewed.
+No hands-on completion rate, grounding accuracy, baseline improvement or latency result is claimed. First validation targets are Office, CapCut, Figma web, Canva web and Photoshop. Other areas remain candidates for later testing. Record unsupported features as blocked for the tested version and leave the task unverified.

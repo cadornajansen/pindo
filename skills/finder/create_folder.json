@@ -18,7 +18,7 @@
   "steps": [
     {
       "id": "open_file",
-      "objective": "Ask the user to open Finder's File menu.",
+      "objective": "Open Finder's File menu.",
       "target": {
         "role": "menu",
         "semantic_name": "File"
@@ -26,12 +26,12 @@
       "expected_result": [
         "Finder's File menu is visible."
       ],
-      "why": "The selected location determines where the new folder is created; the name alone does not establish its path.",
-      "verification": "visual"
+      "why": "The selected location determines where the new folder is created; the name alone does not establish its path. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+      "verification": "user_confirmation"
     },
     {
       "id": "create_folder",
-      "objective": "Ask the user to choose New Folder.",
+      "objective": "Choose New Folder.",
       "target": {
         "role": "menu_item",
         "semantic_name": "New Folder"
@@ -44,7 +44,7 @@
     },
     {
       "id": "name_folder",
-      "objective": "Ask the user to type the requested folder name and press Return.",
+      "objective": "Type the requested folder name and press Return.",
       "target": {
         "role": "text_field",
         "semantic_name": "The new folder's name"

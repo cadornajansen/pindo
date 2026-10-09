@@ -114,7 +114,7 @@
   "validation": {
     "status": "unverified",
     "documented_versions": [
-      "Current vendor documentation reviewed 2026-10-10; exact installed Mac build must be recorded before testing."
+      "Source applies to Word 2019 for Mac; verify current installed build before teaching."
     ],
     "tested_versions": [],
     "notes": "Documentation-derived candidate. Not executed in the application; UI, account entitlements, output fidelity and observation reliability need hands-on validation."

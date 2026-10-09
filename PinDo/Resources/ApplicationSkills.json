@@ -5818,7 +5818,7 @@
       "steps": [
         {
           "id": "open_file",
-          "objective": "Ask the user to open Finder's File menu.",
+          "objective": "Open Finder's File menu.",
           "target": {
             "role": "menu",
             "semantic_name": "File"
@@ -5826,12 +5826,12 @@
           "expected_result": [
             "Finder's File menu is visible."
           ],
-          "why": "The selected location determines where the new folder is created; the name alone does not establish its path.",
-          "verification": "visual"
+          "why": "The selected location determines where the new folder is created; the name alone does not establish its path. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+          "verification": "user_confirmation"
         },
         {
           "id": "create_folder",
-          "objective": "Ask the user to choose New Folder.",
+          "objective": "Choose New Folder.",
           "target": {
             "role": "menu_item",
             "semantic_name": "New Folder"
@@ -5844,7 +5844,7 @@
         },
         {
           "id": "name_folder",
-          "objective": "Ask the user to type the requested folder name and press Return.",
+          "objective": "Type the requested folder name and press Return.",
           "target": {
             "role": "text_field",
             "semantic_name": "The new folder's name"
@@ -9116,7 +9116,7 @@
       "sources": [
         {
           "title": "Vendor task documentation",
-          "url": "https://helpx.adobe.com/photoshop/using/export-artboards-layers.html",
+          "url": "https://helpx.adobe.com/photoshop/using/saving-files-graphics-formats.html",
           "research_date": "2026-10-10"
         }
       ],
@@ -9769,7 +9769,7 @@
       "sources": [
         {
           "title": "Vendor task documentation",
-          "url": "https://helpx.adobe.com/photoshop/desktop/create-manage-layers/create-layer-compositions/non-destructive-editing-techniques.html",
+          "url": "https://helpx.adobe.com/uk/photoshop/desktop/create-manage-layers/get-started-layers/layers-overview.html",
           "research_date": "2026-10-10"
         }
       ],
@@ -10167,7 +10167,7 @@
       "sources": [
         {
           "title": "Vendor task documentation",
-          "url": "https://support.microsoft.com/en-us/powerpoint/powerpoint-for-mac-help",
+          "url": "https://support.microsoft.com/en-us/powerpoint/training/use-charts-and-graphs-in-your-presentation",
           "research_date": "2026-10-10"
         }
       ],
@@ -10192,7 +10192,7 @@
       "steps": [
         {
           "id": "open_insert",
-          "objective": "Ask the user to open the Insert menu in PowerPoint.",
+          "objective": "Open the Insert menu in PowerPoint.",
           "target": {
             "role": "menu",
             "semantic_name": "Insert"
@@ -10200,12 +10200,12 @@
           "expected_result": [
             "The Insert menu is visible and offers picture insertion."
           ],
-          "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
-          "verification": "visual"
+          "why": "Local pictures come from a file dialog; online pictures require a separate source and network access. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+          "verification": "user_confirmation"
         },
         {
           "id": "open_picture",
-          "objective": "Ask the user to point to Picture in the Insert menu to reveal its submenu.",
+          "objective": "Point to Picture in the Insert menu to reveal its submenu.",
           "target": {
             "role": "menu_item",
             "semantic_name": "Picture"
@@ -10213,12 +10213,12 @@
           "expected_result": [
             "Picture source choices are visible."
           ],
-          "why": "Local pictures come from a file dialog; online pictures require a separate source and network access.",
-          "verification": "visual"
+          "why": "Local pictures come from a file dialog; online pictures require a separate source and network access. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+          "verification": "user_confirmation"
         },
         {
           "id": "choose_local_source",
-          "objective": "Ask the user to choose Picture From File.",
+          "objective": "Choose Picture From File.",
           "target": {
             "role": "menu_item",
             "semantic_name": "Picture From File"
@@ -10231,7 +10231,7 @@
         },
         {
           "id": "select_image",
-          "objective": "Ask the user to locate and select the intended local image.",
+          "objective": "Locate and select the intended local image.",
           "target": {
             "role": "file",
             "semantic_name": "The image identified by the user"
@@ -10244,7 +10244,7 @@
         },
         {
           "id": "insert_selected_image",
-          "objective": "Ask the user to choose Insert and inspect the current slide.",
+          "objective": "Choose Insert and inspect the current slide.",
           "target": {
             "role": "button",
             "semantic_name": "Insert"
@@ -12379,12 +12379,12 @@
           "expected_result": [
             "The destination document's File menu is visible."
           ],
-          "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
-          "verification": "visual"
+          "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+          "verification": "user_confirmation"
         },
         {
           "id": "preserve_original",
-          "objective": "Ask the user to choose Duplicate and work in the duplicate to preserve the original PDF.",
+          "objective": "Choose Duplicate and work in the duplicate to preserve the original PDF.",
           "target": {
             "role": "menu_item",
             "semantic_name": "Duplicate"
@@ -12410,7 +12410,7 @@
         },
         {
           "id": "open_view",
-          "objective": "Ask the user to open View in the duplicate destination PDF.",
+          "objective": "Open View in the duplicate destination PDF.",
           "target": {
             "role": "menu",
             "semantic_name": "View"
@@ -12418,12 +12418,12 @@
           "expected_result": [
             "The View menu is visible and offers Thumbnails."
           ],
-          "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
-          "verification": "visual"
+          "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+          "verification": "user_confirmation"
         },
         {
           "id": "show_destination_thumbnails",
-          "objective": "Ask the user to choose Thumbnails in the duplicate destination.",
+          "objective": "Choose Thumbnails in the duplicate destination.",
           "target": {
             "role": "menu_item",
             "semantic_name": "Thumbnails"
@@ -12444,12 +12444,12 @@
           "expected_result": [
             "The source working copy's page thumbnails are visible."
           ],
-          "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
-          "verification": "visual"
+          "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+          "verification": "user_confirmation"
         },
         {
           "id": "combine_pages",
-          "objective": "Ask the user to drag the required thumbnails from the source working copies into the duplicate destination's sidebar at the intended position. Repeat for the requested pages.",
+          "objective": "Drag the required thumbnails from the source working copies into the duplicate destination's sidebar at the intended position. Repeat for the requested pages.",
           "target": {
             "role": "sidebar",
             "semantic_name": "The intended insertion position among the destination page thumbnails"
@@ -12462,7 +12462,7 @@
         },
         {
           "id": "save_combined_copy",
-          "objective": "Ask the user to choose File > Save for the duplicate, using the agreed output name and location if a save dialog appears. Stop if an overwrite is proposed.",
+          "objective": "Choose File > Save for the duplicate, using the agreed output name and location if a save dialog appears. Stop if an overwrite is proposed.",
           "target": {
             "role": "menu_item",
             "semantic_name": "File > Save"
@@ -12475,7 +12475,7 @@
         },
         {
           "id": "verify_originals",
-          "objective": "Ask the user to inspect the original PDFs and compare their page counts and page order with the starting state.",
+          "objective": "Inspect the original PDFs and compare their page counts and page order with the starting state.",
           "target": {
             "role": "document",
             "semantic_name": "The original PDFs"
@@ -13985,7 +13985,7 @@
       "validation": {
         "status": "unverified",
         "documented_versions": [
-          "Current vendor documentation reviewed 2026-10-10; exact installed Mac build must be recorded before testing."
+          "Source applies to Word 2019 for Mac; verify current installed build before teaching."
         ],
         "tested_versions": [],
         "notes": "Documentation-derived candidate. Not executed in the application; UI, account entitlements, output fidelity and observation reliability need hands-on validation."

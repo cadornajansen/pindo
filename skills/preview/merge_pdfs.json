@@ -26,12 +26,12 @@
       "expected_result": [
         "The destination document's File menu is visible."
       ],
-      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
-      "verification": "visual"
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+      "verification": "user_confirmation"
     },
     {
       "id": "preserve_original",
-      "objective": "Ask the user to choose Duplicate and work in the duplicate to preserve the original PDF.",
+      "objective": "Choose Duplicate and work in the duplicate to preserve the original PDF.",
       "target": {
         "role": "menu_item",
         "semantic_name": "Duplicate"
@@ -57,7 +57,7 @@
     },
     {
       "id": "open_view",
-      "objective": "Ask the user to open View in the duplicate destination PDF.",
+      "objective": "Open View in the duplicate destination PDF.",
       "target": {
         "role": "menu",
         "semantic_name": "View"
@@ -65,12 +65,12 @@
       "expected_result": [
         "The View menu is visible and offers Thumbnails."
       ],
-      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
-      "verification": "visual"
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+      "verification": "user_confirmation"
     },
     {
       "id": "show_destination_thumbnails",
-      "objective": "Ask the user to choose Thumbnails in the duplicate destination.",
+      "objective": "Choose Thumbnails in the duplicate destination.",
       "target": {
         "role": "menu_item",
         "semantic_name": "Thumbnails"
@@ -91,12 +91,12 @@
       "expected_result": [
         "The source working copy's page thumbnails are visible."
       ],
-      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals.",
-      "verification": "visual"
+      "why": "Preview can autosave changes. Work with duplicates of every participating PDF so page movement cannot alter originals. Confirm the opened menu yourself because menu availability alone does not show that it is open.",
+      "verification": "user_confirmation"
     },
     {
       "id": "combine_pages",
-      "objective": "Ask the user to drag the required thumbnails from the source working copies into the duplicate destination's sidebar at the intended position. Repeat for the requested pages.",
+      "objective": "Drag the required thumbnails from the source working copies into the duplicate destination's sidebar at the intended position. Repeat for the requested pages.",
       "target": {
         "role": "sidebar",
         "semantic_name": "The intended insertion position among the destination page thumbnails"
@@ -109,7 +109,7 @@
     },
     {
       "id": "save_combined_copy",
-      "objective": "Ask the user to choose File > Save for the duplicate, using the agreed output name and location if a save dialog appears. Stop if an overwrite is proposed.",
+      "objective": "Choose File > Save for the duplicate, using the agreed output name and location if a save dialog appears. Stop if an overwrite is proposed.",
       "target": {
         "role": "menu_item",
         "semantic_name": "File > Save"
@@ -122,7 +122,7 @@
     },
     {
       "id": "verify_originals",
-      "objective": "Ask the user to inspect the original PDFs and compare their page counts and page order with the starting state.",
+      "objective": "Inspect the original PDFs and compare their page counts and page order with the starting state.",
       "target": {
         "role": "document",
         "semantic_name": "The original PDFs"

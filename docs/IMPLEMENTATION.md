@@ -8,7 +8,7 @@ Product boundaries and acceptance criteria live in [product scope](PRODUCT_SCOPE
 |---|---|---|
 | `LocalTutor.Desktop` | WPF command palette, native shortcut, foreground context, mock tutor, Ollama boundary | Core |
 | `LocalTutor.Core` | Serializable tutoring models and shared contracts | No application projects |
-| `LocalTutor.Tools` | Typed utility base class, approved-file inspection/image conversion, PNG compression, video inspection/download, bounded ZIP creation/extraction | Core |
+| `LocalTutor.Tools` | Typed utility base class, file/image utilities, PNG compression, video, ZIP, PDF and file organization | Core |
 | `LocalTutor.Tests` | Focused tests for shared contracts and pure tool logic | Core, Tools |
 
 Desktop targets `net10.0-windows`; Core, Tools, and Tests target `net10.0` because their shared logic does not require Windows. Add a Desktop → Tools reference only when the desktop needs a real utility. No database, web server, or additional framework is required.
@@ -467,3 +467,63 @@ The five focused PDF tests include assertions for range output as one reopened t
 Linux verification used .NET SDK `10.0.112`, Poppler `24.02.0`, and synthetic local PDFs. The focused suite passed **5 tests** covering successful inspect/merge/split/text/PNG/JPEG rendering, PDF reopening/page-count checks, PNG/JPEG image decoding, image-only versus no-selectable-text status, invalid ranges, duplicate page/input/output names, existing-output conflicts, corrupt and encrypted PDFs, pre-cancellation, mid-render cancellation cleanup, strict JSON inputs and workspace boundaries. Build: `dotnet build src/LocalTutor.Tools/LocalTutor.Tools.csproj --no-restore -warnaserror` (zero warnings/errors). Focused tests: `dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore --filter FullyQualifiedName~LocalTutor.Tests.Pdf`. The full offline repository suite passed **200 tests, with two video tests skipped**. Set `POPPLER_BIN_DIR` to a local installation and (on Windows) `LOCAL_TUTOR_IMAGEMAGICK` to an installed `magick.exe`/`convert.exe` for tests outside this machine. No network test, PDF upload, desktop/model registration, Windows validation, real educator workflow, or actual hackathon PDF selection was performed.
 
 Lead handoff: select the exact Windows Poppler build and review its GPL/dependency notices with the application licensing choice; configure its absolute utility directory; bind only the five exact tool IDs; keep paths/selections/previews/approvals in trusted host state; display the complete preview; require fresh effect-specific consent; propagate progress/cancellation; and report `needs_ocr` without cloud OCR. `pdf.inspect` reports a locked file without page details when a password is required. Password entry, OCR, `pdf.optimize`, and unsupported Poppler features remain unavailable. No shared contract or Desktop change is required by the library implementation.
+
+## File organization
+
+Completed local library slice on `tool_calling_functions`: **`file.organize_preview`**, **`file.organize_apply`**, and **`file.find_duplicates`**, matching the planning directory's `TOOL_FUNCTIONS_INDEX.txt`. Implementation is confined to `src/LocalTutor.Tools/FileOrganization/`, with focused tests in `tests/LocalTutor.Tests/FileOrganization/`. All three derive from the existing `LocalTool<TInput,TOutput>`. No Core, Desktop, solution or project configuration was changed. These tools are not callable through the assistant UI/model; the lead still owns integration and Windows device qualification.
+
+### Arguments, results and approvals
+
+Namespace: `LocalTutor.Tools.FileOrganization`. Inputs reject unknown JSON properties and missing required properties; validation rejects empty/oversized selections, unsafe paths and malformed rules. Paths may be absolute or relative to the approved workspace. Approval objects are trusted host configuration and must never come from model output.
+
+| ID / class | Typed input | Result |
+|---|---|---|
+| `file.organize_preview` / `OrganizePreviewTool` | `OrganizePreviewInput(InputPaths, Rules)`: exact selected files and explicit `OrganizationRule` values | Host-owned `OrganizationPlan` with `PlanId`, `ExpiresAt`, all proposed `Moves` (source, destination, bytes, rule description), `Conflicts` and `SkippedFiles`. No file or directory is created or moved. |
+| `file.organize_apply` / `OrganizeApplyTool` | `OrganizeApplyInput(PlanId)`; constructor additionally requires host-created `OrganizationApproval` | `AppliedOrganization` with a result for every planned move (`Moved`, `Failed`, or `NotMoved`) and reverse-ordered `UndoPlan` entries containing current/original paths, bytes and SHA-256. On partial failure/cancellation, `ToolResult.Success` is false **and `Value` contains the receipt**; always read it. |
+| `file.find_duplicates` / `FindDuplicatesTool` | `FindDuplicatesInput(Roots)`: exact selected read-only roots | `FoundDuplicates` with `Groups` (size, SHA-256, grouped paths), `SkippedFiles`, and `ScannedFiles`. Size is checked before hashing candidates; candidate duplicates are rehashed before reporting. Nothing is deleted. |
+
+`OrganizationRule` permits only three explicit kinds: `Extension` with one dot-prefixed ASCII extension (case-insensitive), `ModifiedDate` with inclusive `FromDate`/`ThroughDate` based on UTC last-write time, or `LessonLabel` with the user's label applying to the entire explicit file selection. Every rule names one approved existing destination folder. Labels do not infer content, create folders or rename files. Zero matches produce `NoMatchingRule`; multiple matches produce `AmbiguousRules`. Already-correct files and unavailable files are skipped. Extension sorting describes filename extensions, not decoded/verified content types; organization and exact byte comparison do not parse any file format.
+
+The host constructs `OrganizationAccessScope(workspacePath, approvedFiles, approvedDestinationDirectories, approvedDuplicateRoots)` from user selections. Movement requires exact approved files and exact destination folders inside one existing workspace; selecting a directory never authorizes recursive movement. Duplicate roots authorize only bounded read-only traversal. Model-supplied paths/rules grant no additional access. Display every proposed pair, rule, conflict, skip, expiry and limit; only after explicit user confirmation construct `OrganizationApproval(plan)` and dispatch `OrganizeApplyInput(plan.PlanId)`. Plans expire after five minutes, are consumed atomically once, and can be invalidated by disposing them. A token alone cannot reconstruct an approval. Any displayed conflict blocks the whole apply.
+
+Start the hackathon handoff with a small, user-selected synthetic lesson folder and preview only:
+
+```csharp
+var scope = new OrganizationAccessScope(workspace,
+    approvedFiles: ["lesson/notes.txt"],
+    approvedDestinationDirectories: ["handouts"],
+    approvedDuplicateRoots: ["lesson"]);
+var preview = await new OrganizePreviewTool(scope).ExecuteAsync(new(
+    ["lesson/notes.txt"],
+    [new(OrganizationRuleKind.Extension, "handouts", Extension: ".txt")]), token);
+// Display preview.Value.Moves, Conflicts, SkippedFiles, ExpiresAt and limits.
+// Keep the plan in host state. Obtain explicit user confirmation before constructing an approval.
+// Only then: new OrganizeApplyTool(new OrganizationApproval(plan))
+//     .ExecuteAsync(new OrganizeApplyInput(plan.PlanId), token).
+```
+
+### Safety, bounds and local dependencies
+
+Preview and apply retain original filenames and never overwrite an existing file/directory. Windows case-insensitive name conflicts are checked on every platform, including duplicate proposed destinations. Traversal, ambiguous/reserved/short-name paths, UNC/device paths, mapped Windows network drives, filesystem-root workspaces, protected system locations, `.git`/`.ssh`/`.aws`, symlinks and reparse points are rejected. Destination folders must exist. Apply checks SHA-256, size, modification/creation timestamps, path authorization, expiry, volumes and destination conflicts for **all** planned moves before the first rename, then repeats those checks immediately before each move. Locked/missing files or changed bytes invalidate execution; no hash/metadata bypass or overwrite confirmation exists.
+
+Cross-volume moves are refused with `CrossVolumeMoveUnsupported`. Windows uses `.NET File.Move` with overwrite disabled after volume and reparse checks. Linux uses the installed GNU C Library `renameat2(RENAME_NOREPLACE)` to avoid .NET's cross-volume copy/delete fallback, and a nonblocking/no-follow `open` probe to reject pipes before reading. There is no copy/delete fallback or automatic retry. Other apply platforms are unsupported. No NuGet package, binary download or Windows native dependency was added. Linux verification used glibc **2.39**, Ubuntu `libc6 2.39-0ubuntu8.9`; that dependency, official source/license links and packaging obligations are recorded separately in the planning inventory. It is supplied by the Linux host and is not bundled; Windows never invokes it. Missing native primitives return `NativeFileOperationUnavailable` rather than a fallback move.
+
+Limits in `OrganizationLimits`: **128 selected/scanned files**, **16 rules/destination folders**, **8 duplicate roots**, **1024 directory entries per enumerated directory and per duplicate scan**, **depth 8**, **64 MiB per file**, **256 MiB total selected/scanned bytes**, and a cooperative **two-minute operation deadline**. Duplicate scans report depth/per-file-size skips and fail if aggregate file/entry/byte budgets are exceeded. Progress reports stage and counts only. No content or private-path telemetry is added. Results contain approved paths for user review and should not be logged indiscriminately.
+
+Apply stops at the first failure. Completed moves stay in place, remaining files stay untouched, and the receipt provides a practical reverse plan; no automatic rollback can safely assume the original names remain free. Undo requires a new preview, unchanged hashes, free original destinations, and fresh user approval. Pre-cancellation follows the base contract by throwing `OperationCanceledException` before dispatch; cancellation/deadline expiry during apply returns actual outcomes and the reverse log. Cancellation after the last rename can report `Canceled` with every move recorded as completed. A throwing progress observer stops apply with `ProgressCallbackFailed` and preserves its receipt.
+
+These managed checks require an ordinary local workspace whose directories are not concurrently replaced by an untrusted process. They are not a race-free filesystem sandbox. No durable journal, automatic undo, crash/power-loss recovery, cross-volume copy workflow, rename rule, folder creation, broad recursive move, fuzzy/visual similarity detector, or duplicate deletion is implemented. Plans/receipts remain in memory; the host owns their lifecycle and any user-approved local persistence. Windows junctions, ACLs, locking, filesystem behavior and actual device execution remain unverified.
+
+### Verification and lead handoff
+
+Linux verification: .NET SDK **10.0.112**, runtime **10.0.12**, synthetic local fixtures only. Preview's **17 tests** passed before apply was added. The completed organization slice passed **41 focused tests** covering previews, extension/date/lesson rules, unmatched/ambiguous skips, existing/planned case collisions, malformed/strict inputs, protected/traversal/unapproved paths, symlinks, locked files, stale content with restored timestamps, missing destinations, approval mismatch/expiry/disposal/reuse/concurrent use, cancellation and partial failures with complete receipts (including expiry/disposal between moves). Duplicate tests cover exact bytes across names/extensions, empty files, equal-sized different bytes, overlapping roots, changed/locked files and resource limits. Linux-specific tests verify FIFO rejection, native no-overwrite behavior and refusal of a second mounted volume without copying or deleting the source.
+
+```text
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore --filter FullyQualifiedName~FileOrganization -warnaserror
+dotnet build src/LocalTutor.Tools/LocalTutor.Tools.csproj --no-restore -warnaserror
+dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj --no-restore -warnaserror
+```
+
+Tools built with **zero warnings/errors**. The full offline repository suite passed **241 tests, with two existing video tests skipped**. No cloud service, live network fixture, push, publication, deployment, PR or external transfer was used. WPF execution and Windows organization behavior were not tested on this Linux host.
+
+Lead handoff: bind only the three exact IDs and typed contracts; retain selections/plans/approvals in trusted host state; show the full preview and require explicit confirmation; propagate progress/cancellation; inspect receipts even when `Success=false`; display reverse logs without automatically executing them; and qualify a small Windows lesson-folder workflow before enabling apply. No Core contract change is needed. This prompt's new source/tests and existing README/implementation updates form one local Conventional Commit with author and committer `KampferArchives <eleneusgyen@gmail.com>`. Exclude the pre-existing Desktop project edit, build artifacts and separate planning inventory; no external action is authorized.

@@ -1,90 +1,45 @@
-# LocalTutor
+# Pindo
 
-A Windows teaching assistant for Filipino educators learning digital tools where they work. The intended product uses local AI to suggest one step and highlight an accessible control; the teacher performs the action.
+A Windows-native software tutor for Filipino educators. The user performs actions; the app captures the active window and shows visual guidance.
 
-This is the **bootstrap milestone** for AppBuildersPH Hackathon 2026. The organizer details in [the compliance checklist](docs/HACKATHON_COMPLIANCE.md) were supplied by the team and still require checking against official rules.
+## Active desktop baseline
 
-## Current status
+Open **`Pointly.sln`** in Rider. `Pointly.App` is the active desktop implementation, imported from the existing Pointly working tree on October 9, 2026. Its product name and tray icon already say Pindo; internal Pointly project names are retained to keep the import verifiable.
 
-- Four-project .NET 10 solution with a compact, dark WPF assistant.
-- Text input, Submit/Enter, a clearly labeled mock response, and native `Ctrl + Space` registration with collision reporting and cleanup.
-- Shared tutoring contracts and validated, typed utility contracts; no utility implementations.
-- Central Ollama settings and an asynchronous availability-check boundary. Ollama is optional for launching this scaffold.
+The earlier `LocalTutor.slnx`, `src/`, and `tests/` remain intact as a separate scaffold. They are not connected to Pointly. Do not run both apps at once: their global shortcuts can collide.
 
-**Not implemented:** model inference, Windows UI Automation capture, highlighting, real tutoring, voice, or file-conversion tools. No offline tutoring, privacy guarantee, model accuracy, or performance benchmark is claimed. An Ollama availability result only confirms that its API responded.
-
-## Requirements and setup
-
-- Windows 10/11 for WPF execution.
-- .NET 10 SDK. `global.json` selects a stable SDK from `10.0.100` onward within .NET 10 using `latestFeature`; the bootstrap machine has `10.0.302` on Windows 11.
-- Git; JetBrains Rider with .NET 10 support, or the .NET CLI.
-- Ollama is needed only for the next inference milestone; it was not installed on the bootstrap machine and no model was downloaded.
-
-Public repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
-
-Clone and verify:
+Requirements: Windows 11 build 26100 or newer for this baseline, and the .NET 10 SDK. The project targets `net10.0-windows10.0.26100.0`; other Windows versions are unverified.
 
 ```powershell
-git clone https://github.com/cadornajansen/pindo.git
-cd pindo
-dotnet restore LocalTutor.slnx
-dotnet build LocalTutor.slnx --no-restore
-dotnet test LocalTutor.slnx --no-build --no-restore
-dotnet run --project src/LocalTutor.Desktop/LocalTutor.Desktop.csproj
+dotnet restore Pointly.sln
+dotnet build Pointly.sln -c Debug --no-restore
+dotnet test Pointly.sln -c Debug --no-build --no-restore
 ```
 
-In Rider, open `LocalTutor.slnx`, let package restore finish, and run `LocalTutor.Desktop`. If the IDE cannot locate .NET 10, select the installed .NET CLI in its toolset settings. The CLI commands above remain the verification reference.
+For a visual preview that does not call AI providers, run these in the same PowerShell terminal:
 
-## Try the scaffold
-
-1. Launch with the command above while Ollama is unavailable.
-2. Type an instruction and press Enter. The response must identify itself as a mock.
-3. Focus another application, then press `Ctrl + Space`. The palette should return with its input focused.
-4. With the hotkey registered, Escape hides the window and `Ctrl + Space` brings it back. The close button exits and releases the hotkey.
-5. If another application owns the shortcut, read the status message. Hiding is disabled so the assistant remains reachable.
-
-Verified on the bootstrap Windows 11 machine:
-
-| Command / check | Result |
-|---|---|
-| `dotnet restore LocalTutor.slnx` | Passed |
-| `dotnet build LocalTutor.slnx --no-restore` | Passed; 0 warnings, 0 errors |
-| `dotnet test LocalTutor.slnx --no-build --no-restore` | Passed; 3 tests |
-| Windows desktop smoke check | Passed 22 assertions: launch/focus, Submit, empty input, Enter, Hide/Escape, actual global shortcut, second-instance collision, exit, and hotkey release |
-| Launch without Ollama | Passed; unavailable status shown and mock tutor remained usable |
-
-The interactive smoke check ran on Windows 11 build `26200` at 125% display scaling. A screenshot was visually reviewed with no clipping observed. Automated unit tests cover shared contracts and pure tool logic; the separate smoke check exercised actual Windows input. Windows 10 and mixed-DPI monitors remain untested. Product UI Automation, inference, and highlighting remain unimplemented.
-
-## Structure and configuration
-
-```text
-src/LocalTutor.Desktop/   WPF window, native hotkey, mock tutor, Ollama boundary
-src/LocalTutor.Core/      UI snapshots, tutor DTOs, service and tool contracts
-src/LocalTutor.Tools/     Validated utility base class; Member 2's implementation area
-tests/LocalTutor.Tests/   Lightweight tests for contracts and pure logic
-docs/                    Product, architecture, compliance, team ownership
-LocalTutor.slnx           Solution containing the four projects
+```powershell
+$env:POINTLY_VOICE_MODE = 'false'
+$env:POINTLY_DEBUG_PREVIEW = 'true'
+dotnet run --project Pointly.App/Pointly.App.csproj -c Debug --no-build
 ```
 
-`Desktop → Core`, `Tools → Core`, and `Tests → Core + Tools`. Desktop can reference Tools when a real tool is integrated; Core stays independent of the desktop.
+The app starts in the system tray. Press **Ctrl+Space** to show/dismiss the preview. Exit using its tray menu. This preview only verifies presentation, not inference or grounding. Close other Pindo/Pointly instances first. Remove `POINTLY_DEBUG_PREVIEW` from the launch environment before testing real inference.
 
-Ollama defaults live in `src/LocalTutor.Desktop/Services/OllamaSettings.cs`: base URL `http://localhost:11434`, model `qwen3:1.7b`. This is source-only configuration for now: edit these central defaults and rebuild. There is no settings UI or environment-variable loader. The availability check uses `GET /api/version`; selecting a model does not load or download it.
+## Current capabilities and limits
 
-The intended flow is instruction + filtered UI Automation snapshot → local Ollama inference → validated target ID + teaching instruction → screen highlight. Only the contracts and mock submission path exist today. Third-party online applications can still require internet even when our future inference is local.
+The imported code includes window tracking, UI Automation, Windows.Graphics.Capture, visual overlays, step verification, walkthroughs, and voice infrastructure. Historical source notes are preserved under [docs/pointly-baseline](docs/pointly-baseline/PRODUCT.md); their verification claims describe the source project.
 
-## Team workflow
+**Local inference is not integrated yet.** The imported runtime still uses AssemblyAI for tutor selection, OpenRouter (or optional Bedrock) for vision, and ElevenLabs for voice. Voice is enabled by default outside the preview above. Normal invocation can use configured cloud credentials; do not describe this baseline as offline.
 
-Use one shared repository and direct collaborator access. Create your assigned branch from current `main`, make a focused commit, push your branch, and request a pull request review. Do not force-push `main`. Branch protection is an intended workflow; it is not claimed to be configured.
+The selected local candidate is **MAI-UI-2B**, community Ollama package `maternion/mai-ui:2b`. The user is managing its download. Installing it does not wire it into this app. No benchmark result is claimed yet.
 
-| Member | Branch | Primary area |
-|---|---|---|
-| 1 — technical lead | `feat/ai-desktop` | Desktop, Core contracts, integration |
-| 2 — utilities | `feat/local-tools` | Tools and their own tests |
-| 3 — documentation | `docs/product` | README and core documentation |
-| 4 — research | `research/educators` | Scoped research, prompts, validation scenarios |
+Next checkpoint: test screenshot grounding with MAI-UI-2B, then implement its local provider boundary. No model download, app launch, or cloud API call is triggered by these build/test commands.
 
-Start with the [product documentation index](docs/README.md) for scope, requirements, the data model/ERD, and validation. See [team onboarding and boundaries](docs/TEAM_TASKS.md), [implementation contracts](docs/IMPLEMENTATION.md), and [submission disclosures](docs/HACKATHON_COMPLIANCE.md).
+## Repository and disclosure
 
-Next milestone: benchmark `qwen3:1.7b` on the team's actual laptop and implement a small, application-independent UI Automation snapshot. Do not infer success from prior experiments or an API availability check.
+Shared repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
 
-References: [.NET downloads](https://dotnet.microsoft.com/en-us/download/dotnet/10.0), [WPF overview](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/overview/), [Ollama API](https://github.com/ollama/ollama/blob/main/docs/api.md).
+Pointly contains pre-existing implementation. The team supplied the rule: “Pre-existing code is allowed only if the project is substantially built during the hackathon, with prior work disclosed.” The import itself does not establish substantial new development. Keep the reused baseline and hackathon contributions separately identifiable in the submission.
+
+See [the import inventory and validation](docs/POINTLY_IMPORT.md), [disclosures](docs/HACKATHON_COMPLIANCE.md), and [documentation index](docs/README.md).

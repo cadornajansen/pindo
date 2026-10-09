@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+        <UseWindowsForms>true</UseWindowsForms>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <ApplicationIcon>Assets\Pindo.ico</ApplicationIcon>
+        <Product>Pindo</Product>
+        <Title>Pindo</Title>
+        <Version>0.8.0</Version>
+        <!-- WPF owns process DPI through its manifest; WinForms is used only for NotifyIcon. -->
+        <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Using Remove="System.Windows.Forms" />
+      <Using Remove="System.Drawing" />
+      <PackageReference Include="AWSSDK.BedrockRuntime" Version="4.0.101.7" />
+      <PackageReference Include="NAudio" Version="2.2.1" />
+    </ItemGroup>
+
+</Project>

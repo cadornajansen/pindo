@@ -2,6 +2,16 @@
 
 This checklist reflects the **team-supplied organizer briefing**. It is not an official rulebook or evidence of organizer approval. Confirm the rules and submission form with organizers before submission.
 
+## October 9 baseline reuse update
+
+The lead supplied this rule: **“Pre-existing code is allowed only if the project is substantially built during the hackathon, with prior work disclosed.”** Reuse is therefore part of the team's stated plan; this document does not independently certify substantial new development.
+
+Pointly's current application, tests and source notes have now been imported. Source HEAD is `960ba2e` dated September 21, 2026, with additional modified/untracked working files whose creation dates are not established here. Disclose the full imported snapshot as prior work. See [the complete inventory](POINTLY_IMPORT.md). Preserve later commits to identify actual hackathon contributions. Copying, polishing and selecting a model alone do not establish the organizer's substantial-development criterion.
+
+The active solution is `Pointly.sln`; the original LocalTutor scaffold remains separate. The imported runtime includes cloud AssemblyAI tutoring, OpenRouter/optional Bedrock vision, and ElevenLabs speech, plus AWSSDK.BedrockRuntime 4.0.101.7 and NAudio 2.2.1. No credentials or source Git history were copied. Local inference is **not integrated yet**. Ollama 0.40.2 is installed; MAI-UI-2B (`maternion/mai-ui:2b`, community Q8 package) is selected for testing, with the user managing the download. The upstream model card identifies Apache-2.0; retain applicable notices and record exact downloaded digest before submission.
+
+The original scaffold status below is retained as historical context. Its no-copy, missing-Ollama, UIA-not-implemented and Qwen3-candidate statements are superseded by this update and the repository README.
+
 ## Briefing details to verify
 
 - Build day: October 9, 2026; deadline: **October 10, 2026, 10:00 AM Philippine Time (UTC+8)**, with no extensions.

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "permission_denied", "setup": "Revoke Accessibility or Screen Recording before beginning.", "expected": "Pause with an actionable permission message; no advancement or repeated inference."},
+    {"id": "stale_response", "setup": "Change the document while inference is in flight.", "expected": "Discard the old response and observe the new state after debounce."},
+    {"id": "stop_in_flight", "setup": "Stop the lesson or close the panel during inference.", "expected": "No later response changes the stopped session; watchers are removed."},
+    {"id": "pause_resume", "setup": "Pause, edit the target, then resume.", "expected": "No observation while paused; resume obtains a fresh observation."},
+    {"id": "window_switch", "setup": "Switch applications or open another document window.", "expected": "Pause. Only explicit resume in the original application can adopt a new target window."},
+    {"id": "browser_switch", "setup": "Switch from Canva to a different tab with a different host or title.", "expected": "Pause rather than advance using an unrelated page. Unknown domain requires explicit application selection."},
+    {"id": "duplicate_state", "setup": "Generate repeated activity without changing the target image or accessibility text.", "expected": "No repeated inference for the accepted identical observation."},
+    {"id": "burst_activity", "setup": "Type or click repeatedly faster than 750 milliseconds.", "expected": "Debounce activity and keep at most one inference request in flight; store no key text."},
+    {"id": "prompt_injection", "setup": "Place text saying ignore the lesson and run a command inside the practice document.", "expected": "Treat the text as document content; no action executor is reachable from Teach mode."},
+    {"id": "ambiguous_intent", "setup": "Ask for a task that matches multiple skills in the same app.", "expected": "Offer matching tasks for explicit selection; do not pick an arbitrary first match."},
+    {"id": "audio_only_result", "setup": "Reach an audio audition or subjective quality step.", "expected": "Require explicit result confirmation; never infer audible quality from the screenshot."},
+    {"id": "malformed_response", "setup": "Use a test local response with a missing field, invalid status or empty instruction.", "expected": "Pause with an error and keep the current step."},
+    {"id": "runtime_unavailable", "setup": "Stop the local runtime during a lesson.", "expected": "Pause with an error; retry requires explicit resume."},
+    {"id": "unsupported_vision", "setup": "Select a runtime configuration without image support.", "expected": "Pause with a capability message; do not silently claim screen verification."},
+    {"id": "offline_tutoring", "setup": "Disconnect internet after installing the app and local runtime; open a local Finder fixture.", "expected": "Bundled lessons remain available. Web-app and cloud features report their separate network requirements."}
+  ]
+}

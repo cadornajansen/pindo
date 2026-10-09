@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.photoshop.clipping_mask.recovery",
+  "skill_id": "photoshop.clipping_mask",
+  "application_id": "adobe.photoshop",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The artwork disappears.",
+  "user_instruction": "Clip artwork to a base layer I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect whether the base layer has visible opaque pixels and whether the correct layers are adjacent.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

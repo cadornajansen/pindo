@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.premiere.timeline_edit.recovery",
+  "skill_id": "premiere.timeline_edit",
+  "application_id": "adobe.premiere",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Later clips shifted unexpectedly.",
+  "user_instruction": "Build a Premiere timeline edit I am stuck.",
+  "expected_next_action": {
+    "objective": "Undo and confirm whether insert or overwrite was intended before repeating the edit.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

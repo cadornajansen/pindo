@@ -159,6 +159,8 @@ def _skill(value: Any, location: str) -> dict[str, Any]:
         _strings(skill["related_skills"], f"{location}.related_skills", allow_empty=True)
         for index, group in enumerate(_list(skill["match_groups"], f"{location}.match_groups")):
             _strings(group, f"{location}.match_groups[{index}]")
+            if any(not re.search(r"[a-z0-9]", term.lower()) for term in group):
+                _fail(f"{location}.match_groups[{index}]", "terms must contain searchable letters or numbers")
         for field, keys in (("concepts", {"name", "explanation"}), ("inputs", {"name", "question"})):
             names: set[str] = set()
             for index, item in enumerate(_list(skill[field], f"{location}.{field}", allow_empty=field == "inputs")):
@@ -264,6 +266,10 @@ def load_library(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]
     for skill_id in skills_by_id.keys() - covered_ids:
         _fail(f"{skill_locations[skill_id]}.id", "skill requires at least one evaluation case")
     for skill in skills:
+        if skill["schema_version"] == 2:
+            linked = [case for case in cases if case["skill_id"] == skill["id"]]
+            if len(linked) < 3 or {case["language"] for case in linked} != {"english", "taglish"} or not any(case["id"].endswith(".recovery") for case in linked):
+                _fail(skill_locations[skill["id"]], "version 2 requires English, Taglish and recovery evaluation cases")
         for related in skill.get("related_skills", []):
             if related not in skills_by_id or related == skill["id"]:
                 _fail(skill_locations[skill["id"]], f"invalid related skill {related!r}")

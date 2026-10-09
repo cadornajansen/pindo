@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.photoshop.smart_filters.recovery",
+  "skill_id": "photoshop.smart_filters",
+  "application_id": "adobe.photoshop",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The filter is unavailable for this document.",
+  "user_instruction": "Apply an editable Smart Filter I am stuck.",
+  "expected_next_action": {
+    "objective": "Check color mode, bit depth and Smart Filter support; avoid destructive conversion without a deliberate copy.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

@@ -21,12 +21,22 @@ _SCRIPT = _ROOT / "tools" / "application_skills.py"
 
 
 class ApplicationSkillsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.all_skills, cls.all_cases = load_library(_ROOT)
+
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        for directory in ("skills", "evaluations/cases"):
-            shutil.copytree(_ROOT / directory, self.root / directory)
+        # Mutations need only the seed examples; avoid copying the full catalogue per test.
+        seed_ids = {"powerpoint.insert_image", "finder.create_folder", "preview.merge_pdfs"}
+        for folder, items in (("skills", self.all_skills), ("evaluations/cases", self.all_cases)):
+            destination = self.root / folder
+            destination.mkdir(parents=True, exist_ok=True)
+            for item in items:
+                if item.get("skill_id", item["id"]) in seed_ids:
+                    self.write(destination / (item["id"] + ".json"), item)
         self.skill_count = len(list((self.root / "skills").rglob("*.json")))
         self.case_count = len(list((self.root / "evaluations/cases").rglob("*.json")))
         self.skill_path = sorted((self.root / "skills").rglob("*.json"))[0]
@@ -47,8 +57,8 @@ class ApplicationSkillsTests(unittest.TestCase):
         skills, cases = load_library(_ROOT)
         self.assertTrue(skills)
         self.assertTrue(cases)
-        self.assertEqual(len(skills), self.skill_count)
-        self.assertEqual(len(cases), self.case_count)
+        self.assertEqual(len(skills), len(self.all_skills))
+        self.assertEqual(len(cases), len(self.all_cases))
         self.assertEqual({skill["id"] for skill in skills}, {case["skill_id"] for case in cases})
         self.assertTrue(all(skill["id"] for skill in skills))
         self.assertTrue(all(case["id"] for case in cases))

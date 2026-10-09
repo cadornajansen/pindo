@@ -16,9 +16,11 @@ final class TutorSession {
     var prepared = false
     var completed = false
     var stepIndex = 0
+    var timing = ""
     private var request = ""
     private var target: TutorTarget?
     private var generation = 0
+    private var observationRevision = 0
     private var fingerprint: String?
     private var debounce: Task<Void, Never>?
     private var job: Task<Void, Never>?
@@ -40,7 +42,9 @@ final class TutorSession {
             let target = try TutorCapture.target()
             self.target = target
             guard let library else { throw SkillLibrary.LibraryError.invalid("Skills are unavailable. Rebuild the application resource.") }
-            let profiles = library.applications.filter { $0.matches(name: target.appName, bundleID: target.bundleID, host: target.host) }
+            let detected = library.applications.filter { $0.matches(name: target.appName, bundleID: target.bundleID, host: target.host) }
+            let websites = detected.filter { $0.surface == "browser" }
+            let profiles = websites.isEmpty ? detected : websites
             applicationID = profiles.count == 1 ? profiles[0].id : ""
             instruction = applicationID.isEmpty ? "Confirm which application or website is open using the application menu." : "Choose the task you want to learn."
             selectApplication()
@@ -63,6 +67,13 @@ final class TutorSession {
         inputAnswers = ""
         evidence = ""
         instruction = "Review the requirements and supply the requested details, then begin."
+    }
+
+    func showChoices() {
+        pause()
+        skill = nil
+        choices = library?.skills.filter { $0.application_id == applicationID } ?? []
+        instruction = "Choose the task you want to learn."
     }
 
     func begin() {
@@ -93,6 +104,7 @@ final class TutorSession {
         prepared = false
         completed = false
         fingerprint = nil
+        timing = ""
     }
 
     func resume() {
@@ -116,6 +128,7 @@ final class TutorSession {
 
     func activity() {
         guard active, !paused else { return }
+        observationRevision += 1
         if (try? TutorCapture.target()) != target {
             instruction = "The application, tab, or window changed. Return to the intended window and resume."
             pause()
@@ -134,6 +147,7 @@ final class TutorSession {
         guard job == nil else { pending = true; return }
         let token = generation
         let index = stepIndex
+        let revision = observationRevision
         checking = true
         job = Task { [weak self] in
             guard let self else { return }
@@ -143,13 +157,19 @@ final class TutorSession {
                 if self.pending && !self.paused { self.pending = false; self.activity() }
             }
             do {
+                let started = Date()
                 let observation = try await TutorCapture.capture(target: target, task: skill.title)
                 try Task.checkCancellation()
                 guard token == self.generation, self.fingerprint != observation.fingerprint else { return }
-                self.fingerprint = observation.fingerprint
-                let decision = try await TutorClient.evaluate(skill: skill, step: step, request: self.request, inputs: self.inputAnswers, observation: observation)
+                let (decision, metrics) = try await TutorClient.evaluate(skill: skill, step: step, request: self.request, inputs: self.inputAnswers, observation: observation)
                 try Task.checkCancellation()
-                guard token == self.generation, index == self.stepIndex, !self.paused, (try? TutorCapture.target()) == target else { return }
+                guard TeachingProgress.isCurrent(session: token, currentSession: self.generation, step: index, currentStep: self.stepIndex,
+                    observation: revision, currentObservation: self.observationRevision, paused: self.paused, sameTarget: (try? TutorCapture.target()) == target) else {
+                    if token == self.generation && !self.paused { self.pending = true }
+                    return
+                }
+                self.fingerprint = observation.fingerprint
+                self.timing = "Observation to response: \(Int(Date().timeIntervalSince(started) * 1000)) ms; input tokens: \(metrics.inputTokens.map(String.init) ?? "unavailable"); output tokens: \(metrics.outputTokens.map(String.init) ?? "unavailable")."
                 self.evidence = decision.evidence
                 self.instruction = decision.instruction
                 if decision.status == "uncertain" || decision.status == "needs_input" { self.pause(); return }
@@ -164,7 +184,7 @@ final class TutorSession {
     }
 
     func confirm() {
-        guard prepared, !paused, let step, step.verification == "user_confirmation" else { return }
+        guard active, prepared, !completed, let step, step.verification == "user_confirmation" else { return }
         generation += 1
         job?.cancel()
         advance()

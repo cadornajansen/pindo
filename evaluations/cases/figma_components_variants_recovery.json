@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.figma.components_variants.recovery",
+  "skill_id": "figma.components_variants",
+  "application_id": "figma.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Properties are not editable on the selected object.",
+  "user_instruction": "Create component variants I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect whether it is an instance or main component; edit definitions on the main set.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

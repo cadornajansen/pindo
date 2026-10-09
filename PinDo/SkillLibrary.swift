@@ -128,6 +128,11 @@ nonisolated struct SkillLibrary: Decodable, Sendable {
 
 /// The host owns progression. A model response cannot skip steps or perform actions.
 nonisolated enum TeachingProgress {
+    static func isCurrent(session: Int, currentSession: Int, step: Int, currentStep: Int,
+                          observation: Int, currentObservation: Int, paused: Bool, sameTarget: Bool) -> Bool {
+        session == currentSession && step == currentStep && observation == currentObservation && !paused && sameTarget
+    }
+
     static func canAdvance(step: SkillStep, status: String, evidence: String, userConfirmed: Bool) -> Bool {
         if step.verification == "user_confirmation" { return userConfirmed }
         return status == "observed" && !evidence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

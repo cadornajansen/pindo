@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.excel.clean_csv.recovery",
+  "skill_id": "excel.clean_csv",
+  "application_id": "microsoft.excel",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The expected import connector is absent.",
+  "user_instruction": "Import and clean a CSV in Excel I am stuck.",
+  "expected_next_action": {
+    "objective": "Check Microsoft 365 for Mac build and supported Power Query sources; pause rather than instruct Windows-only controls.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.fl_studio.record_takes.recovery",
+  "skill_id": "fl_studio.record_takes",
+  "application_id": "imageline.flstudio",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The audio recording option is unavailable.",
+  "user_instruction": "Record audio takes in FL Studio I am stuck.",
+  "expected_next_action": {
+    "objective": "Check edition support and macOS microphone permission; Producer Edition or higher may be required for this workflow.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

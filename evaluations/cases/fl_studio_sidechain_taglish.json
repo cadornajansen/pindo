@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.fl_studio.sidechain.taglish",
+  "skill_id": "fl_studio.sidechain",
+  "application_id": "imageline.flstudio",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a disposable 120 BPM four-bar project using installed stock instruments. Use kick beats 1 and 3, snare beats 2 and 4; a four-note C4-E4-G4-C5 phrase; route kick and bass to named Mixer tracks. Create a unique second pattern, automate a native volume parameter, and export 44.1 kHz WAV to Practice Outputs. For recording use a permitted input and retain previous takes. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano gumawa ng sidechain compression?",
+  "expected_next_action": {
+    "objective": "Route the trigger to the destination as a sidechain while preserving intended audible routing.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Mixer routing"
+    }
+  },
+  "expected_result": [
+    "The sidechain route exists between the correct tracks."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

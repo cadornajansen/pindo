@@ -9,6 +9,7 @@ struct TutorTarget: Equatable {
     let appName: String
     let bundleID: String?
     let host: String?
+    let browserTitle: String?
 }
 
 struct TutorObservation {
@@ -27,8 +28,10 @@ enum TutorCapture {
               }), let id = window[kCGWindowNumber as String] as? CGWindowID else {
             throw CaptureError.unavailable("Bring the application window to the front, then resume.")
         }
+        let browserIDs = ["com.apple.Safari", "com.google.Chrome", "com.microsoft.edgemac", "org.mozilla.firefox", "company.thebrowser.Browser"]
         return TutorTarget(pid: app.processIdentifier, windowID: id, appName: app.localizedName ?? "Application",
-                           bundleID: app.bundleIdentifier, host: browserHost(pid: app.processIdentifier))
+                           bundleID: app.bundleIdentifier, host: browserHost(pid: app.processIdentifier),
+                           browserTitle: browserIDs.contains(app.bundleIdentifier ?? "") ? window[kCGWindowName as String] as? String : nil)
     }
 
     private static func browserHost(pid: pid_t) -> String? {

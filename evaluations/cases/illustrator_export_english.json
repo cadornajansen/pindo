@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.illustrator.export.english",
+  "skill_id": "illustrator.export",
+  "application_id": "adobe.illustrator",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a 600x400 practice artboard with two overlapping circles, one curved Pen outline, text Practice and placed practice.png. Use a global blue #2457A7 swatch, ellipse clipping mask and a duplicate live trace before expanding. Add a second named artboard Detail; deliver SVG or PDF copies while retaining practice.ai. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Deliver SVG or PDF artwork",
+  "expected_next_action": {
+    "objective": "Save an editable AI master.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Save master"
+    }
+  },
+  "expected_result": [
+    "The working artwork is saved separately from delivery files."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

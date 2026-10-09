@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.word.headings.recovery",
+  "skill_id": "word.headings",
+  "application_id": "microsoft.word",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "A heading does not appear in navigation.",
+  "user_instruction": "Structure a Word document with headings I am stuck.",
+  "expected_next_action": {
+    "objective": "Check that it uses a built-in heading style rather than direct bold formatting.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

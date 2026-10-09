@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.terminal.navigate.taglish",
+  "skill_id": "terminal.navigate",
+  "application_id": "apple.terminal",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Use only a disposable Practice Files directory containing notes.txt. Run pwd, ls -la, mkdir \"Lesson Files\", cp -i \"notes.txt\" \"notes-copy.txt\", mv -i \"notes-copy.txt\" \"notes-moved.txt\", and find \".\" -name \"notes*.txt\" as separate reviewed exercises. Demonstrate interruption with sleep 30. Never use sudo, recursive deletion or personal files. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano lumipat ng directory sa Terminal?",
+  "expected_next_action": {
+    "objective": "At an idle prompt, run pwd to inspect the current directory.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Prompt"
+    }
+  },
+  "expected_result": [
+    "The current absolute path is shown."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

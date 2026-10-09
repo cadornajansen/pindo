@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.premiere.export.recovery",
+  "skill_id": "premiere.export",
+  "application_id": "adobe.premiere",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The output uses low-resolution proxy media.",
+  "user_instruction": "Export a Premiere sequence I am stuck.",
+  "expected_next_action": {
+    "objective": "Inspect Use Proxies and original-media availability before rerendering.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

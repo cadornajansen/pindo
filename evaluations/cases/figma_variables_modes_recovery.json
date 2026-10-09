@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.figma.variables_modes.recovery",
+  "skill_id": "figma.variables_modes",
+  "application_id": "figma.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "The requested mode count is unavailable.",
+  "user_instruction": "Apply variables and modes I am stuck.",
+  "expected_next_action": {
+    "objective": "Record the plan limit and use only available modes; do not promise a paid upgrade or silently flatten the design.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

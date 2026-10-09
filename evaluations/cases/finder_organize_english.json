@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.finder.organize.english",
+  "skill_id": "finder.organize",
+  "application_id": "apple.finder",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a disposable Practice Files folder containing practice.png, practice.pdf and notes.txt. Use new subfolder Lesson Files, tag Practice and archive only these fixtures. Retain originals for copy and ZIP checks. Do not use personal Downloads content. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Organize Finder files into a folder",
+  "expected_next_action": {
+    "objective": "Select the intended files in their known source folder.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Source selection"
+    }
+  },
+  "expected_result": [
+    "Only the requested source items are selected."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

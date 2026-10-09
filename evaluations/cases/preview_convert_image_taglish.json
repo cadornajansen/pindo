@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.preview.convert_image.taglish",
+  "skill_id": "preview.convert_image",
+  "application_id": "apple.preview",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Open two generated PDFs practice-a.pdf and practice-b.pdf. Duplicate every participating PDF before editing. Merge A then B into practice-merged.pdf, annotate the copy with Reviewed, convert practice.png to JPEG and compress only a PDF copy. Preserve and compare the original files. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano i-convert ang image format?",
+  "expected_next_action": {
+    "objective": "Open the intended source image.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Image"
+    }
+  },
+  "expected_result": [
+    "The correct source image is visible."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

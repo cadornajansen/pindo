@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.excel.conditional_formula.taglish",
+  "skill_id": "excel.conditional_formula",
+  "application_id": "microsoft.excel",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a worksheet with A1:C4 = Item, Units, Price / A, 2, 10 / B, 3, 20 / C, 4, 15. Reserve E1=0.1 for a fixed rate and empty F:H cells for results. Expected units sum=9, average=3. Use IF Units>=3 then High else Low; XLOOKUP B returns 20 from Price; dropdown choices Open,Closed. CSV fixture preserves IDs 001 and 002. Use a new output sheet. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano gumawa ng IF formula?",
+  "expected_next_action": {
+    "objective": "Select an empty output cell beside the relevant data.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Output cell"
+    }
+  },
+  "expected_result": [
+    "The intended output cell is selected."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

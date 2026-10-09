@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.word.headings.taglish",
+  "skill_id": "word.headings",
+  "application_id": "microsoft.word",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Create a two-page practice document with heading Overview, subsection Details, paragraphs of synthetic text and a third-page Appendix section. Use practice.png, a 3x2 table, and a supplied synthetic source: author Example Author, title Practice Book, year 2024, publisher Practice Press. Track changing draft to reviewed. Start Appendix page numbering at 1. Select the fixture subset relevant to this task. Required user details are supplied before the first observed step. The first expected result is not yet present.",
+  "user_instruction": "Paano gamitin ang heading styles?",
+  "expected_next_action": {
+    "objective": "Place the insertion point in the intended heading paragraph.",
+    "target": {
+      "role": "control",
+      "semantic_name": "Heading paragraph"
+    }
+  },
+  "expected_result": [
+    "The intended paragraph is active."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

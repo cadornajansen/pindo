@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "id": "eval.figma.frames_constraints.recovery",
+  "skill_id": "figma.frames_constraints",
+  "application_id": "figma.web",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "Constraints are unavailable.",
+  "user_instruction": "Resize a frame using constraints I am stuck.",
+  "expected_next_action": {
+    "objective": "Check whether the object is directly on the canvas or governed by auto layout; use the appropriate layout controls.",
+    "target": {
+      "role": "dialogue",
+      "semantic_name": "Clarify or recover the current state"
+    }
+  },
+  "expected_result": [
+    "The blocking condition is resolved or the lesson remains paused with a specific explanation."
+  ],
+  "failure_criteria": [
+    "Advances despite the blocking condition.",
+    "Invents a successful result.",
+    "Performs destructive recovery without the user choosing it."
+  ],
+  "language": "english",
+  "validation": {
+    "status": "unverified",
+    "notes": "Recovery specification; no run recorded."
+  }
+}

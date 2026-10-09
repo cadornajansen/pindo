@@ -218,5 +218,7 @@
       "pdfs"
     ]
   ],
-  "related_skills": []
+  "related_skills": [
+    "finder.create_folder"
+  ]
 }

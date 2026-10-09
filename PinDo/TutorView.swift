@@ -18,6 +18,7 @@ struct TutorView: View {
                     }
                 } else if let skill = session.skill {
                     Text("\(skill.application) · \(skill.title)").font(.caption).foregroundStyle(.secondary)
+                    Button("Choose another task") { session.showChoices() }.font(.caption)
                     if !session.prepared {
                         Text("Documentation reviewed; hands-on validation pending.").font(.caption)
                         ForEach(skill.prerequisites + skill.requirements, id: \.self) { Text("• " + $0).font(.caption) }
@@ -28,6 +29,11 @@ struct TutorView: View {
                         Button("Requirements met — begin") { session.begin() }
                     } else if let step = session.step {
                         Text("Step \(session.stepIndex + 1) of \(skill.steps.count)").font(.caption)
+                        if session.paused && !session.completed { Text(step.objective).font(.caption) }
+                        if session.paused && !session.completed {
+                            TextField("Add or correct task details before resuming", text: $session.inputAnswers, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                        }
                         DisclosureGroup("Why this step?") {
                             Text(step.why).font(.caption)
                             ForEach(skill.concepts, id: \.name) { Text($0.name + ": " + $0.explanation).font(.caption) }
@@ -36,13 +42,16 @@ struct TutorView: View {
                             ForEach(step.expected_result, id: \.self) { Text($0).font(.caption) }
                             if !session.evidence.isEmpty { Text("Observed: " + session.evidence).font(.caption) }
                         }
+                        if !session.timing.isEmpty {
+                            DisclosureGroup("Response timing") { Text(session.timing).font(.caption) }
+                        }
                         HStack {
                             if !session.completed {
                                 Button(session.paused ? "Resume watching" : "Pause") {
                                     if session.paused { session.resume() } else { session.pause() }
                                 }
                                 if step.verification == "user_confirmation" {
-                                    Button("I checked this result") { session.confirm() }.disabled(session.paused)
+                                    Button("I checked this result") { session.confirm() }
                                 }
                                 if session.checking { ProgressView().controlSize(.small) }
                             }

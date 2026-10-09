@@ -420,15 +420,19 @@ struct GlassBackground<S: InsettableShape>: View {
     var body: some View {
         Group {
             if #available(macOS 26.0, *) {
-                Color.clear.glassEffect(.regular, in: shape)
+                backing.glassEffect(.regular, in: shape)
             } else {
-                shape.fill(.regularMaterial)
+                backing.background(shape.fill(.regularMaterial))
             }
         }
         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.06)],
                                                    startPoint: .top, endPoint: .bottom), lineWidth: 0.75))
         .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
     }
+
+    /// Glass alone goes see-through over a white page while the text stays white (dark mode), or the reverse.
+    /// A backing in the window's own appearance keeps text contrast on any background.
+    private var backing: some View { shape.fill(Color(nsColor: .windowBackgroundColor).opacity(0.75)) }
 }
 
 private struct ContentHeight: PreferenceKey {

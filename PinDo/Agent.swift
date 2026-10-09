@@ -16,11 +16,17 @@ enum Agent {
         // A matching lesson from the skills library becomes a known procedure for the model to follow.
         // The totals lesson is a review procedure (inspect, add an AVERAGE, "formula bar shows SUM"): in Do mode it made the
         // model retype a finished formula. Typing totals is covered by the Excel tip; Teach mode still uses the lesson.
-        let skill = Skills.match(task: task).flatMap { ["excel.totals_averages"].contains($0.id) ? nil : $0 }
-        if let skill { report("▸ Using skill: \(skill.title)") }
-        let procedure = skill.map { "\n\n" + Skills.procedure($0) } ?? ""
-        // Menu commands are ranked by word overlap; include the skill's targets so e.g. "Data Validation" is offered.
-        let menuQuery = task + (skill.map { " " + $0.steps.map(\.target.semantic_name).joined(separator: " ") } ?? "")
+        // Picked for the app in front, so it's picked again after Pindo opens another app (a Finder lesson was
+        // steering a Safari search).
+        var procedure = "", menuQuery = task
+        func pickLesson() {
+            let skill = Skills.match(task: task).flatMap { ["excel.totals_averages"].contains($0.id) ? nil : $0 }
+            if let skill { report("▸ Using skill: \(skill.title)") }
+            procedure = skill.map { "\n\n" + Skills.procedure($0) } ?? ""
+            // Menu commands are ranked by word overlap; include the skill's targets so e.g. "Data Validation" is offered.
+            menuQuery = task + (skill.map { " " + $0.steps.map(\.target.semantic_name).joined(separator: " ") } ?? "")
+        }
+        pickLesson()
 
         var history: [String] = []
         var lastProposal = ""
@@ -40,7 +46,8 @@ enum Agent {
                 return
             }
             anchorPID = pid
-            let snap = await Task.detached { AX.snapshot(pid: pid, appName: appName, task: menuQuery) }.value
+            let query = menuQuery
+            let snap = await Task.detached { AX.snapshot(pid: pid, appName: appName, task: query) }.value
 
             let started = Date()
             let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt + procedure, answerOnly: answerOnly)
@@ -112,6 +119,19 @@ enum Agent {
                 settle = .milliseconds(1500)
             case "press":
                 guard let element else { history.append("press \(action.id ?? "") ✗ no such id"); continue }
+                // Pressing a text field does nothing (Safari refused, the model retried). Right after typing into it,
+                // the intent is to submit: press Return, with the same check as any Return key.
+                if element.isText {
+                    guard history.last?.hasPrefix("type “\(element.label)”") == true else {
+                        history.append("press \(element.id) ✗ that is a text field: type into it, then press return"); continue
+                    }
+                    if Keys.isRisky("return", appName: appName), !(await confirm("Press Return in \(appName)?")) { report("Stopped. No key was pressed."); return }
+                    report("▸ Pressing Return to submit “\(element.label)”")
+                    Keys.post(Keys.parse("return")!, pid: pid)
+                    history.append("key return (submitted “\(element.label)”) ✓")
+                    try await Task.sleep(for: .milliseconds(800))
+                    continue
+                }
                 if isRisky(element.label), !(await confirm("Press “\(element.label)”?")) { report("Stopped. Nothing was pressed."); return }
                 report("▸ Pressing “\(element.label)”")
                 if !AX.press(element.element) { history.append("press \(element.id) ✗ the app refused"); continue }
@@ -153,6 +173,7 @@ enum Agent {
             }
             history.append(step + " ✓")
             try await Task.sleep(for: settle)
+            if action.action == "open_app" || action.action == "open_url" { pickLesson() }
         }
         report("Stopped after \(maxSteps) steps. Tell me what's left and I'll continue.")
     }

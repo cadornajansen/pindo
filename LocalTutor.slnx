@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LocalTutor.Core/LocalTutor.Core.csproj" />
+    <Project Path="src/LocalTutor.Desktop/LocalTutor.Desktop.csproj" />
+    <Project Path="src/LocalTutor.Tools/LocalTutor.Tools.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LocalTutor.Tests/LocalTutor.Tests.csproj" />
+  </Folder>
+</Solution>

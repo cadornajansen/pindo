@@ -113,6 +113,9 @@ final class GuideSession {
                 }
             } catch GroundingCapture.Failure.permission {
                 finish("Pindo needs Screen Recording permission to see this window. Allow it in System Settings → Privacy & Security, then try again.")
+            } catch let error as CloudError {
+                guard token == generation else { return }
+                finish(error.localizedDescription)
             } catch {
                 guard token == generation else { return }
                 finish("Couldn't reach the local model. Is Ollama running? (\(error.localizedDescription))")

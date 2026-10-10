@@ -15,7 +15,18 @@ nonisolated enum Provider: String, CaseIterable, Sendable {
         switch self { case .assemblyAI: "voiceInput"; case .elevenLabs: "voiceOutput"; case .openRouter: "cloudReasoning" }
     }
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
-    var key: String? { Keychain.read(rawValue) }
+    /// A key file is read before the Keychain: an ad-hoc rebuild looks like a new app to the Keychain, which then asks
+    /// for the login password on every rebuild (and froze Pindo while the prompt was hidden).
+    /// File: ~/Library/Application Support/PinDo/<assemblyai|elevenlabs|openrouter>.key, readable only by you (chmod 600).
+    var key: String? { fileKey ?? Keychain.read(rawValue) }
+
+    var fileKey: String? {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/PinDo/\(rawValue).key")
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let mode = (attributes[.posixPermissions] as? NSNumber)?.intValue, mode & 0o077 == 0, // not readable by others
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines).nonEmptyKey
+    }
 }
 
 nonisolated enum Keychain {
@@ -138,6 +149,33 @@ nonisolated enum Cloud {
         return try openRouterText(try await send(req, .openRouter))
     }
 
+    /// Settings → "Use cloud model for guidance": the OpenRouter model that replaces the local one for Guide and Do,
+    /// or nil when it's off. It receives the same prompts and, for Guide, the window screenshot.
+    static var cloudModel: String? {
+        guard UserDefaults.standard.bool(forKey: "cloudModelEnabled") else { return nil }
+        return UserDefaults.standard.string(forKey: "cloudModel") ?? "openai/gpt-6-luna"
+    }
+
+    /// One JSON reply from the cloud model, as text (like Ollama's `response`). Pindo's parsers validate it.
+    static func generate(system: String, user: String, image: Data?, model: String) async throws -> String {
+        // Off the main thread: a Keychain prompt for a rebuilt app would otherwise freeze Pindo until answered.
+        guard let key = await Task.detached(operation: { Provider.openRouter.key }).value else {
+            throw CloudError("The cloud model is on, but no OpenRouter key is saved in Settings.")
+        }
+        var content: [[String: Any]] = [["type": "text", "text": user + "\nReply with exactly one JSON object and nothing else."]]
+        if let image { content.append(["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + image.base64EncodedString()]]) }
+        var req = request("https://openrouter.ai/api/v1/chat/completions", timeout: 45)
+        req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "model": model, "max_tokens": 400, "temperature": 0, "response_format": ["type": "json_object"],
+            "messages": [["role": "system", "content": system], ["role": "user", "content": content]],
+        ])
+        let text = try openRouterText(try await send(req, .openRouter))
+        // Some models wrap JSON in a code fence even in JSON mode.
+        return text.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     static func openRouterText(_ data: Data) throws -> String {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = object["choices"] as? [[String: Any]],
@@ -243,4 +281,8 @@ final class Speaker {
         player?.stop()
         player = nil
     }
+}
+
+private extension String {
+    nonisolated var nonEmptyKey: String? { isEmpty ? nil : self }
 }

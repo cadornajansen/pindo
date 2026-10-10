@@ -24,6 +24,7 @@ struct SettingsView: View {
     @AppStorage("voiceInput") private var voiceInput = false
     @AppStorage("voiceOutput") private var voiceOutput = false
     @AppStorage("cloudReasoning") private var cloudReasoning = false
+    @AppStorage("cloudModelEnabled") private var cloudModelEnabled = false
     @State private var localStatus = "Checking…"
 
     var body: some View {
@@ -40,6 +41,7 @@ struct SettingsView: View {
                 KeyField(provider: .elevenLabs)
                 Toggle("Cloud answers when the local model is down (OpenRouter)", isOn: $cloudReasoning)
                 KeyField(provider: .openRouter)
+                Toggle("Use cloud model for guidance (OpenRouter, sends screenshots)", isOn: $cloudModelEnabled)
             } header: { Text("Cloud (optional)") } footer: {
                 Text("Voice input sends your recording to AssemblyAI. Spoken answers send the answer text to ElevenLabs. "
                      + "Cloud answers send only your typed question to OpenRouter, never screen content. Keys are stored in your Keychain.")
@@ -70,7 +72,7 @@ private struct KeyField: View {
                 Button("Remove") { Keychain.delete(provider.rawValue); saved = false }
             }
         }
-        .onAppear { saved = Keychain.has(provider.rawValue) }
+        .onAppear { saved = provider.fileKey != nil || Keychain.has(provider.rawValue) }
     }
 }
 

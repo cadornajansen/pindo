@@ -329,6 +329,11 @@ enum Grounder {
         user += "\n\nGoal: \(goal)\nSteps already shown: " + (history.isEmpty ? "none" : history.joined(separator: " | "))
         if let procedure { user += "\n\n\(procedure)\nPoint at the control for the first step whose result is not on screen yet." }
         if image != nil { user = "[img-0]" + user + "\nA screenshot of the window is attached." }
+        if let cloud = Cloud.cloudModel {
+            let started = Date()
+            let text = try await Cloud.generate(system: system, user: user.replacingOccurrences(of: "[img-0]", with: ""), image: image?.jpeg, model: cloud)
+            return (text, Date().timeIntervalSince(started) * 1000)
+        }
         // Raw prompt with an empty <think> block: ~0.5 s per call instead of 3-28 s (measured).
         let prompt = "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
         var body: [String: Any] = ["model": Ollama.model, "raw": true, "prompt": prompt, "stream": false, "keep_alive": -1,

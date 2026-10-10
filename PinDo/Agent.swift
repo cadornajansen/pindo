@@ -68,6 +68,10 @@ enum Agent {
                 history.append(note)
                 continue
             }
+            // Questions never act. The local grammar enforces this; a cloud model isn't bound by it, so check here too.
+            if answerOnly, !["done", "ask"].contains(action.action) {
+                history.append("\(action.action) ✗ this is a question: answer it with done"); continue
+            }
             let element = action.id.flatMap { id in snap.candidates.first { $0.id == id } }
             // Steps are named by label, not id: menu ids shift when items enable (e.g. after Select All).
             let step = describe(action, element)
@@ -542,6 +546,11 @@ enum Ollama {
         // Raw ChatML with an empty <think> block: Qwen3-VL ignores `think: false` and otherwise reasons for
         // ~2,500 tokens (60-100 s) per step; prefilling it makes each step ~0.5-1 s with the same decisions.
         // ponytail: Qwen chat format only (Qwen3-VL, MAI-UI); add per-family templates if another family becomes the default.
+        if let cloud = Cloud.cloudModel {
+            let text = try await Cloud.generate(system: system, user: user + (answerOnly ? "\nThis is a question: reply only with the done action." : ""),
+                                                image: nil, model: cloud)
+            return try JSONDecoder().decode(Action.self, from: Data(text.utf8))
+        }
         let prompt = "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
         let body: [String: Any] = [
             "model": model, "raw": true, "prompt": prompt, "stream": false, "keep_alive": -1,

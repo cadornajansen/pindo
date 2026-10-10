@@ -301,7 +301,7 @@ final class QuickBarModel {
         if listening { return finishListening() }
         guard phase == .composing else { return }
         guard Provider.assemblyAI.isEnabled else { return note("Voice input is off. Turn it on in PinDo Settings (menu bar icon ▸ Settings…).") }
-        guard Keychain.has(Provider.assemblyAI.rawValue) else { return note("Add an AssemblyAI API key in PinDo Settings to use voice input.") }
+        guard Provider.assemblyAI.fileKey != nil || Keychain.has(Provider.assemblyAI.rawValue) else { return note("Add an AssemblyAI API key in PinDo Settings to use voice input.") }
         cancel()
         let id = generation
         Task {
@@ -541,7 +541,7 @@ struct QuickBarView: View {
             Text(modelName)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.tertiary)
-                .help("Local model: \(Ollama.model)")
+                .help(Cloud.cloudModel.map { "Guidance uses \($0) via OpenRouter (cloud)" } ?? "Local model: \(Ollama.model)")
             Button(action: model.toggleVoice) {
                 Image(systemName: "mic")
                     .font(.system(size: 14, weight: .medium))
@@ -568,7 +568,11 @@ struct QuickBarView: View {
     }
 
     private var canSend: Bool { !model.text.trimmingCharacters(in: .whitespaces).isEmpty }
-    private var modelName: String { Ollama.model == "qwen3-vl:8b" ? "Qwen3-VL 8B" : Ollama.model }
+    /// The local model's name; ☁︎ when the cloud model is standing in for guidance (screenshots leave the Mac).
+    private var modelName: String {
+        let local = ["qwen3-vl:8b": "Qwen3-VL 8B", "maternion/mai-ui:8b": "MAI-UI 8B"][Ollama.model] ?? Ollama.model
+        return Cloud.cloudModel == nil ? local : local + " ☁︎"
+    }
 
     // MARK: Working (single slim row)
 

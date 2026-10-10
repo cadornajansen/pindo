@@ -37,6 +37,11 @@ enum Agent {
         // Typing or Return over a selection replaces it; only allow that when the task asks to overwrite.
         // ponytail: keyword heuristic; revisit when tasks get more varied.
         let keepSelection = task.contains(/\b(replace|overwrite|change|rewrite|rename|delete|remove|instead)\b/.ignoresCase())
+        // Acting needs Accessibility. Without it every app looks empty and the model guesses: say so instead.
+        if !answerOnly, !AXIsProcessTrusted() {
+            report("Pindo needs Accessibility permission to use apps. Allow PinDo in System Settings → Privacy & Security → Accessibility, then try again.")
+            return
+        }
         for _ in 1...maxSteps {
             try Task.checkCancellation()
             guard let app = NSWorkspace.shared.frontmostApplication else { break }
@@ -49,6 +54,12 @@ enum Agent {
             anchorPID = pid
             let query = menuQuery
             let snap = await Task.detached { AX.snapshot(pid: pid, appName: appName, task: query) }.value
+            // Three rejected proposals in a row (invented ids, non-text targets…): stop with the real reason
+            // instead of looping or asking the user to rephrase a valid request.
+            if history.reversed().prefix(while: { $0.contains(" ✗") }).count >= 3 {
+                report(Self.stuckMessage(appName: appName, readable: !snap.candidates.isEmpty))
+                return
+            }
 
             let started = Date()
             let action = try await Ollama.nextAction(task: task, history: history, screen: snap.prompt + procedure, answerOnly: answerOnly)
@@ -85,8 +96,8 @@ enum Agent {
             }
             if step == lastProposal {
                 report(history.last?.hasSuffix("✓") == true
-                    ? "Stopped before repeating \(step). The task is probably finished. Tell me if it isn't."
-                    : "I keep trying the same step (\(step)), so I stopped. Try rephrasing the task.")
+                    ? "I stopped because the next step (\(step)) would repeat the last one. Check whether the task is finished; nothing more was done."
+                    : Self.stuckMessage(appName: appName, readable: !snap.candidates.isEmpty))
                 return
             }
             lastProposal = step
@@ -123,7 +134,7 @@ enum Agent {
                 anchorPID = nil
                 settle = .milliseconds(1500)
             case "press":
-                guard let element else { history.append("press \(action.id ?? "") ✗ no such id"); continue }
+                guard let element else { history.append("press \(Self.unknownID(action.id))"); continue }
                 // Pressing a text field does nothing (Safari refused, the model retried). Right after typing into it,
                 // the intent is to submit: press Return, with the same check as any Return key.
                 if element.isText {
@@ -141,7 +152,8 @@ enum Agent {
                 report("▸ Pressing “\(element.label)”")
                 if !AX.press(element.element) { history.append("press \(element.id) ✗ the app refused"); continue }
             case "type":
-                guard let element, let text = action.text, !text.isEmpty else { history.append("type ✗ needs a listed id and text"); continue }
+                guard let element else { history.append("type \(Self.unknownID(action.id))"); continue }
+                guard let text = action.text, !text.isEmpty else { history.append("type \(element.id) ✗ no text given"); continue }
                 // Typing at a button falls back to key events, which land in whatever has focus: never do that.
                 guard element.isText else { history.append("type \(element.id) ✗ that is not a text field"); continue }
                 report("▸ Typing into “\(element.label)”")
@@ -172,8 +184,14 @@ enum Agent {
                         try await Task.sleep(for: .milliseconds(120))
                     }
                 } else {
-                    if !keepSelection { AX.collapseSelection(element.element) }
-                    AX.type(text, into: element.element, pid: pid)
+                    // A just-created item's name field ("untitled folder", all selected) is meant to be replaced, then
+                    // committed with Return. Collapsing it appended the name ("untitled folderPindo Test") in testing.
+                    let freshName = AX.isFreshName(element.element)
+                    if !keepSelection, !freshName { AX.collapseSelection(element.element) }
+                    guard AX.type(text, into: element.element, pid: pid) else {
+                        history.append("type \(element.id) ✗ “\(element.label)” didn't accept text or take focus"); continue
+                    }
+                    if freshName { Keys.post(Keys.parse("return")!, pid: pid) }
                 }
             case "key":
                 guard let combo = action.combo?.nonEmpty ?? action.text?.nonEmpty, let key = Keys.parse(combo) else {
@@ -194,6 +212,18 @@ enum Agent {
             if action.action == "open_app" || action.action == "open_url" { pickLesson() }
         }
         report("Stopped after \(maxSteps) steps. Tell me what's left and I'll continue.")
+    }
+
+    /// Ids come only from the current list; anything else (a made-up "<id of a textfield>", a label) is rejected.
+    private static func unknownID(_ id: String?) -> String {
+        "\((id ?? "").prefix(40)) ✗ not an id from the list; use an id exactly as listed (like e3 or m2)"
+    }
+
+    /// Why Pindo stopped when it can't progress, in terms the user can act on.
+    private static func stuckMessage(appName: String, readable: Bool) -> String {
+        readable
+            ? "I couldn't find a control in \(appName) that does this, so I stopped. Nothing more was changed."
+            : "I can't read \(appName)'s controls through Accessibility, so I can't do this here. Ask “Show me how…” instead: Guide mode can use the screen."
     }
 
     private static func describe(_ action: Ollama.Action, _ element: Candidate?) -> String {
@@ -261,6 +291,8 @@ enum Skills {
     // ponytail: hand-written per skill; move into ApplicationSkills.json (an "agent_hint" per step) as they grow.
     private static let tips = [
         // Wording tested offline on the saved Excel prompt: with it the model selects A1 once, then fills every cell in one step.
+        "apple.finder": "Finder tip: to make a folder, press the menu command File > New Folder; then type the folder's name into the "
+            + "new name field (it replaces untitled folder and is saved for you), then reply done.",
         "microsoft.excel": "Excel steps for entering cells: (1) type the top-left cell address (like A1) into the \"name box\" field, once. "
             + "(2) Then type ALL the cells in ONE type action into the \"Formula Bar\" textarea: one table row per line (\\n) and the "
             + "cells of a row separated by \\t, headers first, e.g. \"Header 1\\tHeader 2\\nvalue\\tvalue\". Each row fills left to right, "
@@ -351,11 +383,25 @@ nonisolated enum AX {
     }
 
     /// Inserts at the caret like typing (never replaces the whole field), falling back to key events.
-    static func type(_ text: String, into el: AXUIElement, pid: pid_t) {
+    /// Inserts text through Accessibility. Falls back to key events only when this field really has focus, since
+    /// key events go to whatever is focused in the app. Returns false when neither is possible.
+    @discardableResult
+    static func type(_ text: String, into el: AXUIElement, pid: pid_t) -> Bool {
         AXUIElementSetAttributeValue(el, kAXFocusedAttribute as CFString, kCFBooleanTrue)
-        if AXUIElementSetAttributeValue(el, kAXSelectedTextAttribute as CFString, text as CFString) != .success {
-            Keys.typeText(text, pid: pid)
-        }
+        if AXUIElementSetAttributeValue(el, kAXSelectedTextAttribute as CFString, text as CFString) == .success { return true }
+        guard (attr(el, kAXFocusedAttribute) as Bool?) == true else { return false }
+        Keys.typeText(text, pid: pid)
+        return true
+    }
+
+    /// A name field for an item that was just created: its whole value is selected and is a default name.
+    static func isFreshName(_ el: AXUIElement) -> Bool {
+        guard let value: String = attr(el, kAXValueAttribute), value.lowercased().hasPrefix("untitled") else { return false }
+        var range: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXSelectedTextRangeAttribute as CFString, &range) == .success,
+              let range, CFGetTypeID(range) == AXValueGetTypeID() else { return false }
+        var r = CFRange()
+        return AXValueGetValue(range as! AXValue, .cfRange, &r) && r.location == 0 && r.length == (value as NSString).length
     }
 
     static func replace(_ text: String, in el: AXUIElement) {
@@ -491,9 +537,10 @@ nonisolated enum Keys {
 
 /// Local model over Ollama's HTTP API (127.0.0.1, so no ATS exception needed).
 enum Ollama {
-    // ponytail: model name via `defaults write com.pindopro.PinDo model <name>`; real settings UI in M7.
-    static var model: String { UserDefaults.standard.string(forKey: "model") ?? "qwen3-vl:8b" }
-    private static let base = URL(string: "http://127.0.0.1:11434/api/")!
+    /// The local model (MAI-UI 8B by default; `defaults write com.pindopro.PinDo model <name>` to change). See Config.
+    static var model: String { Config.localModel }
+    static var displayName: String { ["maternion/mai-ui:8b": "MAI-UI 8B", "qwen3-vl:8b": "Qwen3-VL 8B"][model] ?? model }
+    private static var base: URL { Config.endpoint }
 
     private static let system = """
         You are PinDo, an assistant that operates the user's Mac. Each turn you get the user's task, \
@@ -596,6 +643,7 @@ enum Ollama {
 
     private static func request(_ endpoint: String, _ body: [String: Any]) throws -> URLRequest {
         var req = URLRequest(url: base.appending(path: endpoint))
+        req.timeoutInterval = Config.inferenceTimeout
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // Sorted keys keep "action" first in every schema variant. Ollama turns the schema into an output template

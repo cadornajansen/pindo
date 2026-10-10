@@ -32,7 +32,11 @@ jobs:
           build/intent-tests
       - name: Test cloud provider response handling
         run: |
-          swiftc -swift-version 6 PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests
+          swiftc -swift-version 6 PinDo/Config.swift PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests
           build/cloud-tests
+      - name: Test settings validation
+        run: |
+          swiftc -swift-version 6 PinDo/Config.swift tests/ConfigTests.swift -o build/config-tests
+          build/config-tests
       - name: Check bundled resource
         run: test -f build/Build/Products/Debug/PinDo.app/Contents/Resources/ApplicationSkills.json

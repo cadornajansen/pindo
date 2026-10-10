@@ -1,5 +1,7 @@
 # PinDo Pro — MVP Plan
 
+> **Historical.** This is the original MVP plan. The current system is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the active local model is now MAI-UI 8B, not the models named below.
+
 > A local-first AI buddy that lives next to your cursor. It sees your screen, hears your voice,
 > talks back, and **points at the thing you need to click**. Think *Clicky*, but the brain runs
 > on your MacBook, so it's free to use as much as you want, private, and works offline.

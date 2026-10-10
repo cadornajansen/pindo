@@ -30,7 +30,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent(Ollama.model == "qwen3-vl:8b" ? "Qwen3-VL 8B (Ollama)" : Ollama.model, value: localStatus)
+                LabeledContent("\(Ollama.displayName) (Ollama)", value: localStatus)
             } header: { Text("Local model") } footer: {
                 Text("Handles every request. Screenshots and screen content never leave this Mac.").foregroundStyle(.secondary)
             }
@@ -72,7 +72,7 @@ private struct KeyField: View {
                 Button("Remove") { Keychain.delete(provider.rawValue); saved = false }
             }
         }
-        .onAppear { saved = provider.fileKey != nil || Keychain.has(provider.rawValue) }
+        .onAppear { saved = provider.hasKey }
     }
 }
 
@@ -81,6 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var hotKey = FnSpaceHotKey { [quickBar] in quickBar.toggle() }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // One Pindo at a time: a second copy would register a second Fn+Space tap and a second quick bar.
+        if let other = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .first(where: { $0 != .current }) {
+            other.activate()
+            NSApp.terminate(nil)
+            return
+        }
+        for problem in Config.problems() { agentLog.error("settings: \(problem, privacy: .public); using the default") }
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         startHotKey()
         Task { try? await Ollama.warm() }
@@ -130,6 +138,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { quickBar.snapshot(to: FileManager.default.temporaryDirectory.appending(path: "pindo-\(name).png")) }
         }
         #endif
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        quickBar.cancel() // stops model requests, recordings and speech
     }
 
     // The tap can't be created until Accessibility is granted; keep retrying so it

@@ -76,6 +76,9 @@ final class GuideSession {
         let goal = self.goal, history = self.history, procedure = self.procedure, useVision = vision || webEditor
         Task {
             defer { if token == self.generation { self.working = false } }
+            guard AXIsProcessTrusted() else {
+                return finish("Pindo needs Accessibility permission to read apps. Allow PinDo in System Settings → Privacy & Security → Accessibility, then try again.")
+            }
             guard let ctx = await Task.detached(operation: { GroundingCollector.collect(task: goal) }).value else {
                 report?("Bring the app you need help with to the front, then press Check again.")
                 return

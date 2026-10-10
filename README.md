@@ -1,91 +1,163 @@
-# PinDo Pro
+# Pindo (macOS)
 
-A local-first AI buddy for macOS that sees your screen, hears your voice, talks back, and
-points at what to click. It runs on-device (Apple Silicon, tuned for an M4 Pro with 24 GB),
-so it's private and unlimited. Cloud reasoning and voice are optional (bring your own key).
+A screen-aware AI assistant for macOS that helps teachers, students and everyday users find their way around
+unfamiliar apps. It answers questions, **points** at the next control to click (Guide), **does** simple steps for
+you (Do), and teaches step-by-step lessons (Teach), in English, Filipino and Taglish.
 
-**Status:** working prototype (Guide, Do, Teach; local Qwen3-VL). See [PLAN.md](PLAN.md) for the architecture, MVP milestones (M0–M7) and Phase 2 hyper-local computer use (M8–M11) for Excel, Word, PowerPoint, Canva and more.
+It runs on your Mac: the default model is **MAI-UI 8B**, served locally by Ollama. Cloud services are optional,
+off by default, and visibly marked when on.
 
-## Run (M1 slice: `Fn + Space` quick bar)
+**Status:** demo-ready prototype with known limitations (see [Verified limitations](#verified-limitations) and
+[the release report](docs/RELEASE_REPORT.md)). This is the macOS rebuild; the original Windows app lives in
+[cadornajansen/pindo](https://github.com/cadornajansen/pindo).
 
-Requirements: macOS 15+, Xcode 26, [Ollama](https://ollama.com) running locally.
+## Requirements
+
+- Apple Silicon Mac, macOS 15 or later (developed on a MacBook Pro M4 Pro, 24 GB, macOS 26.6.2)
+- Xcode 26 to build
+- [Ollama](https://ollama.com) 0.12.7 or later (developed on 0.40.2)
+- About 6 GB free memory for the model
+
+## Set up the local model (MAI-UI 8B)
+
+```bash
+ollama pull maternion/mai-ui:8b      # 6.1 GB, qwen3vl architecture, Q4_K_M
+```
+
+Pindo talks to Ollama at `http://127.0.0.1:11434` and keeps the model loaded. Nothing else is needed for local use.
+
+## Build and run
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project PinDo.xcodeproj -scheme PinDo -derivedDataPath build build
 open build/Build/Products/Debug/PinDo.app
 ```
 
-Or open `PinDo.xcodeproj` in Xcode and press ⌘R.
+Or open `PinDo.xcodeproj` in Xcode and press ⌘R. Pindo lives in the menu bar (hand icon).
 
-1. On first launch, allow **PinDo** in *System Settings → Privacy & Security → Accessibility*. The hotkey starts within 2 s, with no relaunch.
-2. Press **`Fn + Space`** anywhere and type a request. There's no mode to pick: Pindo decides from the wording
-   ([`IntentPolicy`](PinDo/IntentPolicy.swift), English and Taglish):
-   - **Show me where** ("How do I…", "Where is…", "Paano…", "Saan…"): **Guide** points at the control with the yellow
-     pointer; you click, then Pindo looks again and shows the next step (**Check again** re-checks, **Stop** ends).
-     Accessibility first; a screenshot goes to the local model only when the window's controls aren't enough.
-   - **Do it / answer** ("Make it bold", "Open Excel", "Summarize this email", questions): Pindo acts through
-     Accessibility, one step at a time, and asks before Send, Delete, Buy, Quit and similar actions.
-   - **Teach me** ("Teach me…", "Walk me through…", "Turuan mo ako…"): a lesson from the skills library.
-   - **Unclear** ("Help me with this"): one question, *Show me* or *Do it for me*.
-   While it works, the bar becomes a slim status row; `Esc` or ✕ stops. `Esc`, `Fn + Space` or clicking
-   elsewhere closes the bar.
-   Guide also needs **Screen Recording** (for windows whose controls aren't readable).
-3. There's no `Fn` key on your keyboard? Use the hand icon in the menu bar → *Open Quick Bar*.
+### macOS permissions
 
-The model defaults to `qwen3-vl:8b` (`ollama pull qwen3-vl:8b`). Switch it with:
+| Permission | Needed for | When macOS asks |
+|---|---|---|
+| Accessibility | Reading app controls, Do mode, the Fn + Space hotkey | First launch |
+| Screen Recording | Guide/Teach when an app's controls aren't readable (Canva, drawn UIs) | First screenshot |
+| Microphone | Voice input only | First recording |
+
+**Rebuilds and permissions:** the project is ad-hoc signed (no signing certificate on the development Mac), so
+macOS treats every rebuild as a new app. Permissions then stop matching (`tccd: Failed to match existing code
+requirement`). After a rebuild, reset and grant again:
 
 ```bash
-defaults write com.pindopro.PinDo model <ollama-model-name>
+tccutil reset ScreenCapture com.pindopro.PinDo; tccutil reset Accessibility com.pindopro.PinDo
 ```
 
-### Optional cloud voice and answers (off by default)
+The permanent fix is a stable signing identity: choose a Team (a free Apple ID works) under *Signing &
+Capabilities* in Xcode. Grants then survive rebuilds.
 
-Menu bar icon → **Settings…** shows the local model's status and three opt-in switches. Each needs your own key,
-saved from that window into your **Keychain** (never into files, defaults or the repo):
+## Using it
+
+Press **`Fn + Space`** anywhere (or menu bar → *Open Quick Bar*) and type. There's no mode to pick; Pindo decides
+from the wording ([`IntentPolicy`](PinDo/IntentPolicy.swift)):
+
+- **Questions** ("What is…", "Ano ang…"): answered without touching the computer.
+- **Show me where** ("How do I…", "Where is…", "Paano…", "Saan…"): **Guide** points at the control with a yellow
+  pointer. You click, then Pindo looks again and shows the next step.
+- **Do it** ("Type … in the document", "Open Excel", "Create a dropdown in B2…"): **Do** acts through
+  Accessibility, one checked step at a time, and asks before Send, Delete, Quit and similar actions.
+- **Teach me** ("Teach me…", "Walk me through…", "Turuan mo ako…"): a lesson from the skills library.
+- **Unclear** ("Help me with this"): one question, *Show me* or *Do it for me*.
+
+`Esc` or ✕ stops a request at any time.
+
+## Optional cloud features (all off by default)
+
+Menu bar → **Settings…** shows the local model's status and the opt-in switches:
 
 | Switch | Provider | What is sent |
 |---|---|---|
-| Voice input | AssemblyAI | Your recording, only between clicking the mic and **Done** (`↩`; `Esc` discards; 60 s cap) |
-| Speak answers | ElevenLabs | The final answer text (≤ 600 characters); **Stop speaking** cuts it off |
-| Cloud answers | OpenRouter | Only a typed plain question, and only when the local model is unreachable |
+| Voice input | AssemblyAI | Your recording, only between clicking the mic and **Done** |
+| Speak answers | ElevenLabs | The final answer text (≤ 600 characters) |
+| Cloud answers when the local model is down | OpenRouter | Only a typed plain question |
+| **Use cloud model for guidance** | OpenRouter, **GPT Luna** (`openai/gpt-6-luna`) | The prompt, the app's control list and, for Guide, a screenshot of the window |
 
-Screenshots and screen content never go to a cloud service. With every switch off, Pindo is fully local.
-Voice input also needs **Microphone** permission (macOS asks on first use). Optional overrides:
-`defaults write com.pindopro.PinDo elevenLabsVoice <voice id>`, `elevenLabsModel <model id>`, `openRouterModel <model id>`.
+While the cloud model is on, the bar shows **☁︎** next to the model name. Cloud is never switched on
+automatically; a failed local request is never silently retried in the cloud.
 
-**Signing note:** the project signs ad-hoc ("Sign to Run Locally"), so macOS may forget the Accessibility grant after a rebuild.
-To fix that for good, pick your Apple ID team under *Signing & Capabilities* in Xcode (a free account works).
+### API keys
+
+Paste each key into its field in Settings and press **Save**. Keys are stored only in your **Keychain**
+(service `com.pindopro.PinDo`). They are never written to settings, files, logs or the app bundle. Pindo reads each
+key from the Keychain at most once per launch, off the main thread.
+
+Debug builds only: a developer key file `~/Library/Application Support/PinDo/<assemblyai|elevenlabs|openrouter>.key`
+(chmod 600) is used **only when the Keychain has no entry**. It is not compiled into Release builds.
+
+### Configuration
+
+All non-secret settings are in [`Config`](PinDo/Config.swift). Change them in Settings or with
+`defaults write com.pindopro.PinDo <key> <value>`. Invalid values are logged at launch and ignored.
+
+| Key | Default | Notes |
+|---|---|---|
+| `model` | `maternion/mai-ui:8b` | Any Ollama model name |
+| `ollamaEndpoint` | `http://127.0.0.1:11434/api/` | Must be on this Mac (loopback) |
+| `inferenceTimeout` | `60` | Seconds, 5–300 |
+| `cloudModelEnabled` | `false` | Settings switch |
+| `cloudModel` | `openai/gpt-6-luna` | OpenRouter model id |
+| `groundingDebug` | `false` | Debug: save what Guide saw to `$TMPDIR/pindo-grounding/` (includes screenshots) |
+
+Precedence: a valid stored value, otherwise the default. No environment variables are read.
+
+## What works, and what doesn't
+
+Verified on the development Mac (details in [the benchmark](docs/PINDO_FINAL_BENCHMARK.md) and
+[the release report](docs/RELEASE_REPORT.md)):
+
+- **Local questions** in English, Tagalog and Taglish, about 1 s.
+- **Typing** into a text field (TextEdit), checked by reading the field back.
+- **Safety:**
+  - Questions never act.
+  - Switching apps mid-task stops it.
+  - Non-text targets and invented ids are refused.
+  - A cancelled request never acts later.
+  - Missing permissions give a clear message.
+- **Pointing at a drawn button** from a screenshot (4/4 in tests).
+- **Voice input** (AssemblyAI → normal request) and **spoken answers** (ElevenLabs, with Stop).
+
+### Verified limitations
+
+- **Multi-step guidance in real apps is unreliable.**
+  - In the benchmark, Finder, PowerPoint and Canva failed.
+  - Office ribbon buttons aren't exposed to Accessibility.
+  - Chrome exposes no page content.
+- **Canva, Excel table fill and Finder folder creation** have fixes that were checked on saved prompts and
+  screenshots, not yet live.
+- **No file tools** (PDF merge, ZIP, conversion) are implemented in the macOS app.
+- **PowerPoint** opened decks read-only on the development Mac (Office licence).
+- **Permissions reset after every rebuild** (ad-hoc signing; see above).
 
 ## Application skills and Teach mode
 
-Ask Pindo to **teach** you something ("teach me pivot tables") to learn one step at a time while you operate
-the app. The panel stays open and watches the selected window locally. Pause, resume and result confirmation
-are available.
+[`PinDo/Resources/ApplicationSkills.json`](PinDo/Resources/ApplicationSkills.json) holds **113 lessons** with
+**342 evaluation cases** across Office, Canva, Finder, Figma, Adobe apps, CapCut and more.
+- **Teach** follows them step by step.
+- **Do and Guide** use the matching lesson as a known procedure.
 
-The library contains **109 tasks across 15 application areas**, **330 task cases**
-and **15 shared runtime scenarios**. Office, CapCut, Figma web, Canva web and
-Photoshop are the first hands-on test set. The broader catalogue includes FL
-Studio, Illustrator, Premiere, After Effects and macOS utilities. All workflows
-remain hands-on unverified.
-
-```powershell
-py -B tools/application_skills.py --check-bundle PinDo/Resources/ApplicationSkills.json
-py -B -m unittest discover -s tests -v
-```
-
-See [the skill contract](docs/APPLICATION_SKILLS.md), [catalogue](docs/SKILL_CATALOGUE.md)
-and [Mac continuation guide](docs/MAC_HANDOFF.md). Python checks run on Windows;
-the app requires macOS. GitHub CI builds it and checks Swift progression guards
-and packaged resources. Teach also requires Screen Recording permission and a
-local runtime supporting image input.
+Most lessons are written from documentation and are marked unverified until tested hands-on. See
+[the skill contract](docs/APPLICATION_SKILLS.md) and [catalogue](docs/SKILL_CATALOGUE.md).
 
 ## Developer checks
 
 ```bash
-swiftc -swift-version 6 PinDo/GroundingGeometry.swift tests/GroundingTests.swift -o build/grounding-tests && build/grounding-tests
 swiftc -swift-version 6 PinDo/IntentPolicy.swift tests/IntentPolicyTests.swift -o build/intent-tests && build/intent-tests
-swiftc -swift-version 6 PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests && build/cloud-tests
-defaults write com.pindopro.PinDo groundingDebug -bool true   # saves what Guide saw/answered to $TMPDIR/pindo-grounding/
+swiftc -swift-version 6 PinDo/GroundingGeometry.swift tests/GroundingTests.swift -o build/grounding-tests && build/grounding-tests
+swiftc -swift-version 6 PinDo/Config.swift PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests && build/cloud-tests
+swiftc -swift-version 6 PinDo/Config.swift tests/ConfigTests.swift -o build/config-tests && build/config-tests
+swiftc -swift-version 6 PinDo/SkillLibrary.swift tests/SkillLibraryTests.swift -o build/skill-tests && build/skill-tests PinDo/Resources/ApplicationSkills.json
+python3 -B tools/application_skills.py --check-bundle PinDo/Resources/ApplicationSkills.json
+python3 -B -m unittest discover -s tests
 ```
 
-`tests/InaccessibleTarget.swift` opens a window whose buttons are invisible to Accessibility (vision fallback test).
+`tests/InaccessibleTarget.swift` opens a window whose buttons are invisible to Accessibility (vision test).
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) and [DISCLOSURES.md](docs/DISCLOSURES.md).
+[PLAN.md](PLAN.md) is the original (historical) plan.

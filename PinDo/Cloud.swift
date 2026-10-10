@@ -15,36 +15,69 @@ nonisolated enum Provider: String, CaseIterable, Sendable {
         switch self { case .assemblyAI: "voiceInput"; case .elevenLabs: "voiceOutput"; case .openRouter: "cloudReasoning" }
     }
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
-    /// A key file is read before the Keychain: an ad-hoc rebuild looks like a new app to the Keychain, which then asks
-    /// for the login password on every rebuild (and froze Pindo while the prompt was hidden).
-    /// File: ~/Library/Application Support/PinDo/<assemblyai|elevenlabs|openrouter>.key, readable only by you (chmod 600).
-    var key: String? { fileKey ?? Keychain.read(rawValue) }
+    /// The saved key: Keychain first (canonical). Debug builds may also use a developer key file, but only when the
+    /// Keychain has no entry, so it never overrides a key saved in Settings. Synchronous and possibly prompting the
+    /// first time per launch: call `loadKey()` from UI code instead.
+    var key: String? {
+        if let saved = Keychain.read(rawValue) { return saved }
+        #if DEBUG
+        return Keychain.has(rawValue) ? nil : developerKey
+        #else
+        return nil
+        #endif
+    }
 
-    var fileKey: String? {
+    /// The key, read off the main thread. A Keychain authorization prompt (an ad-hoc rebuild looks like a new app)
+    /// once froze the whole app while it waited behind other windows.
+    func loadKey() async -> String? { await Task.detached { self.key }.value }
+
+    /// Whether a key is available, without reading a secret or prompting.
+    var hasKey: Bool {
+        #if DEBUG
+        if developerKey != nil { return true }
+        #endif
+        return Keychain.has(rawValue)
+    }
+
+    #if DEBUG
+    /// Development only: ~/Library/Application Support/PinDo/<assemblyai|elevenlabs|openrouter>.key, readable only by
+    /// you (chmod 600). Not compiled into Release builds. Prefer the Keychain (Settings → Save).
+    var developerKey: String? {
         let url = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/PinDo/\(rawValue).key")
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
               let mode = (attributes[.posixPermissions] as? NSNumber)?.intValue, mode & 0o077 == 0, // not readable by others
               let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines).nonEmptyKey
+        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return key.isEmpty ? nil : key
     }
+    #endif
 }
 
+/// The one credential store: generic passwords under service com.pindopro.PinDo, account = provider id.
+/// Each key is read from the Keychain at most once per launch and then kept in memory (never logged); saving or
+/// removing a key updates the cache.
 nonisolated enum Keychain {
     private static let service = "com.pindopro.PinDo"
+    private static let cache = KeyCache()
+
     private static func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
     }
 
     static func read(_ account: String) -> String? {
+        if let cached = cache.value(account) { return cached }
         var query = query(account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &out)
+        let value = status == errSecSuccess ? (out as? Data).flatMap { String(data: $0, encoding: .utf8) } : nil
+        // Missing or denied: remember that too, so a denied prompt isn't shown again on every request this session.
+        cache.store(account, value)
+        return value
     }
 
-    /// Whether a key is saved, without reading the secret itself.
+    /// Whether a key is saved, without reading the secret itself (no authorization prompt).
     static func has(_ account: String) -> Bool {
         SecItemCopyMatching(query(account) as CFDictionary, nil) == errSecSuccess
     }
@@ -54,10 +87,25 @@ nonisolated enum Keychain {
         delete(account)
         var query = query(account)
         query[kSecValueData as String] = Data(value.utf8)
-        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+        let saved = SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+        cache.store(account, saved ? value : nil)
+        return saved
     }
 
-    static func delete(_ account: String) { SecItemDelete(query(account) as CFDictionary) }
+    static func delete(_ account: String) {
+        SecItemDelete(query(account) as CFDictionary)
+        cache.forget(account)
+    }
+}
+
+/// In-memory, per-launch cache of Keychain reads. `nil` entries mean "looked up, nothing usable".
+nonisolated private final class KeyCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var entries: [String: String?] = [:]
+
+    func value(_ account: String) -> String?? { lock.withLock { entries[account] } }
+    func store(_ account: String, _ value: String?) { lock.withLock { entries[account] = .some(value) } }
+    func forget(_ account: String) { _ = lock.withLock { entries.removeValue(forKey: account) } }
 }
 
 nonisolated struct CloudError: LocalizedError {
@@ -151,15 +199,12 @@ nonisolated enum Cloud {
 
     /// Settings → "Use cloud model for guidance": the OpenRouter model that replaces the local one for Guide and Do,
     /// or nil when it's off. It receives the same prompts and, for Guide, the window screenshot.
-    static var cloudModel: String? {
-        guard UserDefaults.standard.bool(forKey: "cloudModelEnabled") else { return nil }
-        return UserDefaults.standard.string(forKey: "cloudModel") ?? "openai/gpt-6-luna"
-    }
+    static var cloudModel: String? { Config.cloudModel }
 
     /// One JSON reply from the cloud model, as text (like Ollama's `response`). Pindo's parsers validate it.
     static func generate(system: String, user: String, image: Data?, model: String) async throws -> String {
         // Off the main thread: a Keychain prompt for a rebuilt app would otherwise freeze Pindo until answered.
-        guard let key = await Task.detached(operation: { Provider.openRouter.key }).value else {
+        guard let key = await Provider.openRouter.loadKey() else {
             throw CloudError("The cloud model is on, but no OpenRouter key is saved in Settings.")
         }
         var content: [[String: Any]] = [["type": "text", "text": user + "\nReply with exactly one JSON object and nothing else."]]
@@ -283,6 +328,3 @@ final class Speaker {
     }
 }
 
-private extension String {
-    nonisolated var nonEmptyKey: String? { isEmpty ? nil : self }
-}

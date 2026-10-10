@@ -342,9 +342,9 @@ enum Grounder {
         var data = try JSONSerialization.data(withJSONObject: body)
         data = Data(String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"__SCHEMA__\"",
                                                                              with: schema(allowPoint: image != nil, allowElement: !ctx.elements.isEmpty)).utf8)
-        var request = URLRequest(url: URL(string: "http://127.0.0.1:11434/api/generate")!)
+        var request = URLRequest(url: Config.endpoint.appending(path: "generate"))
         request.httpMethod = "POST"
-        request.timeoutInterval = 60
+        request.timeoutInterval = Config.inferenceTimeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
         let started = Date()
@@ -363,7 +363,7 @@ final class GroundingDebug {
     let folder: URL
 
     static func start(goal: String, context ctx: GroundingContext) -> GroundingDebug? {
-        guard UserDefaults.standard.bool(forKey: "groundingDebug") else { return nil }
+        guard Config.groundingDebug else { return nil }
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let folder = FileManager.default.temporaryDirectory.appending(path: "pindo-grounding/\(stamp)")
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

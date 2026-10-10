@@ -1,4 +1,4 @@
-// swiftc -swift-version 6 PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests && build/cloud-tests
+// swiftc -swift-version 6 PinDo/Config.swift PinDo/Cloud.swift tests/CloudTests.swift -o build/cloud-tests && build/cloud-tests
 // Response validation and spoken-text rules for the optional cloud providers (no network).
 import Foundation
 

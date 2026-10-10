@@ -249,8 +249,8 @@ final class QuickBarModel {
     private func recover(from error: Error, prompt: String, id: Int) async {
         let localDown = error is URLError || error is Ollama.ModelError
         guard localDown, Provider.openRouter.isEnabled, IntentPolicy.isQuestion(prompt) else { return say(Self.describe(error)) }
-        guard let key = Provider.openRouter.key else {
-            return say(Self.describe(error) + "\nCloud answers are on, but no OpenRouter key is saved in Settings.")
+        guard let key = await Provider.openRouter.loadKey() else {
+            return say(Self.describe(error) + "\nCloud answers are on, but no OpenRouter key is saved in Settings (or Keychain access was denied).")
         }
         say("☁︎ The local model is unavailable, so OpenRouter (cloud) answered. Only your question was sent.")
         do {
@@ -301,7 +301,7 @@ final class QuickBarModel {
         if listening { return finishListening() }
         guard phase == .composing else { return }
         guard Provider.assemblyAI.isEnabled else { return note("Voice input is off. Turn it on in PinDo Settings (menu bar icon ▸ Settings…).") }
-        guard Provider.assemblyAI.fileKey != nil || Keychain.has(Provider.assemblyAI.rawValue) else { return note("Add an AssemblyAI API key in PinDo Settings to use voice input.") }
+        guard Provider.assemblyAI.hasKey else { return note("Add an AssemblyAI API key in PinDo Settings to use voice input.") }
         cancel()
         let id = generation
         Task {
@@ -333,10 +333,14 @@ final class QuickBarModel {
 
     /// Sends the recording to AssemblyAI and submits the transcript like a typed request.
     func transcribe(_ audio: Data) {
-        guard let key = Provider.assemblyAI.key else { return note("Add an AssemblyAI API key in PinDo Settings to use voice input.") }
         let id = generation
         transcribing = true
         task = Task {
+            guard let key = await Provider.assemblyAI.loadKey() else {
+                guard generation == id else { return }
+                transcribing = false
+                return note("Add an AssemblyAI API key in PinDo Settings to use voice input (or allow Keychain access).")
+            }
             do {
                 let started = Date()
                 let transcript = try await Cloud.transcribe(audio, key: key).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -359,9 +363,12 @@ final class QuickBarModel {
     /// Reads the final answer aloud when voice output is on. Speaking never triggers any computer action.
     private func speakAnswer(_ id: Int) {
         guard Provider.elevenLabs.isEnabled, let text = Cloud.spokenText(answer) else { return }
-        guard let key = Provider.elevenLabs.key else { return say("Voice output is on, but no ElevenLabs key is saved in Settings.") }
         speaking = true
         task = Task {
+            guard let key = await Provider.elevenLabs.loadKey() else {
+                if generation == id { speaking = false; say("Voice output is on, but no ElevenLabs key is saved in Settings (or Keychain access was denied).") }
+                return
+            }
             do {
                 let audio = try await Cloud.speech(text, key: key)
                 guard generation == id, speaking else { return }
@@ -570,7 +577,7 @@ struct QuickBarView: View {
     private var canSend: Bool { !model.text.trimmingCharacters(in: .whitespaces).isEmpty }
     /// The local model's name; ☁︎ when the cloud model is standing in for guidance (screenshots leave the Mac).
     private var modelName: String {
-        let local = ["qwen3-vl:8b": "Qwen3-VL 8B", "maternion/mai-ui:8b": "MAI-UI 8B"][Ollama.model] ?? Ollama.model
+        let local = Ollama.displayName
         return Cloud.cloudModel == nil ? local : local + " ☁︎"
     }
 

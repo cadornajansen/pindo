@@ -33,9 +33,9 @@ enum TutorClient {
             "properties": ["status": ["type": "string", "enum": ["observed", "not_yet", "uncertain", "needs_input"]],
                            "instruction": ["type": "string"], "evidence": ["type": "string"]],
             "required": ["status", "instruction", "evidence"]]
-        var http = URLRequest(url: URL(string: "http://127.0.0.1:11434/api/chat")!)
+        var http = URLRequest(url: Config.endpoint.appending(path: "chat"))
         http.httpMethod = "POST"
-        http.timeoutInterval = 90
+        http.timeoutInterval = Config.inferenceTimeout + 30 // lessons send a screenshot and longer context
         http.setValue("application/json", forHTTPHeaderField: "Content-Type")
         http.httpBody = try JSONSerialization.data(withJSONObject: ["model": Ollama.model, "stream": false,
             "format": schema, "options": ["temperature": 0], "keep_alive": "10m",

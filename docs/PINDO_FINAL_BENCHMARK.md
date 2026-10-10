@@ -1,5 +1,7 @@
 # Pindo — Final Hackathon Acceptance & AI Benchmark
 
+> **Historical.** This benchmark ran on build `cceb4de` with **Qwen3-VL 8B**, the default model at the time. The current default is MAI-UI 8B; see [RELEASE_REPORT.md](RELEASE_REPORT.md).
+
 Run on 2026-10-10, 05:21–05:55 (+08:00), by Claude Opus 5.5 acting as QA. Every result below comes from real runs on
 this Mac. Where a test could not run, it says **BLOCKED** and why. Nothing was simulated.
 

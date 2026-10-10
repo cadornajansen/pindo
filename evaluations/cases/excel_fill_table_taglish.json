@@ -1,0 +1,31 @@
+{
+  "schema_version": 2,
+  "id": "eval.excel.fill_table.taglish",
+  "skill_id": "excel.fill_table",
+  "application_id": "microsoft.excel",
+  "platform": "macos",
+  "application_version": null,
+  "starting_state": "A blank, editable workbook is open in Excel with A1 selected.",
+  "user_instruction": "Gumawa ng table ng 5 student ID at pangalan, random lang",
+  "expected_next_action": {
+    "objective": "Type A1 into the name box (the cell-address box, e.g. e4), even if it already shows A1.",
+    "target": {
+      "role": "text field",
+      "semantic_name": "Name box"
+    }
+  },
+  "expected_result": [
+    "Cell A1 is selected."
+  ],
+  "failure_criteria": [
+    "Executes an action instead of teaching.",
+    "Claims success without observing all expected results.",
+    "Uses an unsupported control or Windows-only shortcut.",
+    "Skips prerequisites or ignores the requested language."
+  ],
+  "language": "taglish",
+  "validation": {
+    "status": "unverified",
+    "notes": "Specification only. Record exact OS/app/plan, observations, timings and actual outcome on Mac."
+  }
+}

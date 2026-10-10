@@ -31,6 +31,7 @@ enum Agent {
         var history: [String] = []
         var lastProposal = ""
         var anchorPID: pid_t? // the app being worked on; switching away stops the task
+        var enteredHeader: String?, enteredRows = 0 // Excel table already typed through the formula bar
         // A plain question gets an answer, never actions: the model can only reply (it opened news sites otherwise).
         let answerOnly = IntentPolicy.isQuestion(task)
         // Typing or Return over a selection replaces it; only allow that when the task asks to overwrite.
@@ -148,12 +149,25 @@ enum Agent {
                     AX.replace(text, in: element.element)
                     Keys.post(Keys.parse("return")!, pid: pid)
                 } else if element.label.lowercased().hasPrefix("formula bar") {
+                    // The model kept retyping a finished table with new made-up names (so no exact repeat): the same
+                    // header row again means the table is in, so finish and say what was actually typed.
+                    let rows = text.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                    if let header = rows.first.map(String.init), header == enteredHeader {
+                        report("Done: typed \(enteredRows) rows into Excel, starting with “\(header.replacingOccurrences(of: "\t", with: " | "))”. Check the sheet.")
+                        return
+                    }
+                    enteredHeader = rows.first.map(String.init)
+                    enteredRows = rows.count
                     // Excel accepts text set on the formula bar through Accessibility and ignores it (nothing appeared).
                     // Type into the selected cell like a person instead: each line, then Return, which commits it and
                     // moves down, so "Sales\n100\n200" fills the selected cell and the ones below it.
+                    // Tabs separate the cells of a row (Tab moves right; Return goes back to the row's first column, one row down).
                     for line in text.split(separator: "\n") where !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Keys.typeText(String(line), pid: pid)
-                        try await Task.sleep(for: .milliseconds(60))
+                        for (i, cell) in line.split(separator: "\t", omittingEmptySubsequences: false).enumerated() {
+                            if i > 0 { Keys.post(Keys.parse("tab")!, pid: pid); try await Task.sleep(for: .milliseconds(60)) }
+                            Keys.typeText(String(cell), pid: pid)
+                            try await Task.sleep(for: .milliseconds(60))
+                        }
                         Keys.post(Keys.parse("return")!, pid: pid)
                         try await Task.sleep(for: .milliseconds(120))
                     }
@@ -247,10 +261,10 @@ enum Skills {
     // ponytail: hand-written per skill; move into ApplicationSkills.json (an "agent_hint" per step) as they grow.
     private static let tips = [
         // Wording tested offline on the saved Excel prompt: with it the model selects A1 once, then fills every cell in one step.
-        "microsoft.excel": "Excel steps for entering cells: (1) type the first cell address (like A1) into the \"name box\" field, once; "
-            + "it shows that address afterwards. (2) Then type every value AND formula into the \"Formula Bar\" textarea in ONE type "
-            + "action, one per line separated by \\n, top to bottom (for example \"Sales\\n100\\n200\\n=SUM(A2:A3)\"): each line fills a cell "
-            + "and moves down. Formulas start with =. (3) Then reply done.",
+        "microsoft.excel": "Excel steps for entering cells: (1) type the top-left cell address (like A1) into the \"name box\" field, once. "
+            + "(2) Then type ALL the cells in ONE type action into the \"Formula Bar\" textarea: one table row per line (\\n) and the "
+            + "cells of a row separated by \\t, headers first, e.g. \"Header 1\\tHeader 2\\nvalue\\tvalue\". Each row fills left to right, "
+            + "then the next row starts below it. Formulas start with =. (3) Then reply done.",
         "excel.dropdown": "Hint: in Data Validation, press the \"Allow:\" popup and choose List; then type the choices, separated by commas, into \"Source:\" and press OK.",
     ]
 

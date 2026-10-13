@@ -16,7 +16,6 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
-            Configuration.Migrate();
             _controller = new UtilityController();
             SystemEvents.SessionSwitch += OnSessionSwitch;
             SystemEvents.PowerModeChanged += OnPowerChanged;

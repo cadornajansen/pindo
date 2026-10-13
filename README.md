@@ -50,7 +50,7 @@ The setup script checks ImageMagick, Poppler, yt-dlp and FFmpeg. It preserves ex
 - `PINDO_OPENROUTER_MODEL`: optional; source default is `google/gemini-3.8-flash`.
 - `PINDO_IMAGEMAGICK`, `PINDO_POPPLER`, `PINDO_YTDLP`, `PINDO_FFMPEG`: paths to the native utilities (Poppler uses its binary directory).
 
-On startup, configuration migration copies legacy model/tool settings only when the corresponding Pindo setting is absent. Existing values and old keys are preserved; secrets are never printed.
+Pindo reads only the settings listed above. Configure model and native-tool paths using the `PINDO_` names.
 
 ## Code and tests
 
@@ -80,4 +80,4 @@ Remove-Item Env:PINDO_INPUT_TEST
 
 This sends synthetic Ctrl/Windows input to validate Start-menu masking and released modifier state. Unit tests cover recognition, press/release order and cancellation; a physical-keyboard check remains useful on your device.
 
-See [cleanup validation and inventory](docs/CLEANUP.md) and [source/dependency attribution](docs/PROVENANCE.md). Tutoring, voice, vision, local models and obsolete scaffold code have been removed from the maintained tree. The next architecture redesign is separate work.
+See [cleanup validation](docs/CLEANUP.md) and [source/dependency attribution](docs/PROVENANCE.md). Tutoring, voice, vision, local models and obsolete scaffold code have been removed from the maintained tree. The next architecture redesign is separate work.

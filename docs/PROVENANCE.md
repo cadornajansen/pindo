@@ -2,8 +2,8 @@
 
 Pindo retains UI and utility code from earlier work. Renaming or reducing it does not make it newly authored.
 
-- The Pointly desktop snapshot was imported on October 9, 2026, from the existing local Pointly checkout. Its source HEAD was `960ba2e` (September 21, 2026), plus modified/untracked work whose creation dates were not independently established. The compact WPF composer, presentation helpers and tray assets retain that lineage.
-- The LocalTutor Core/Tools implementation was integrated with PR #2's history preserved in commit `0056687`. It is now maintained as Pindo.Core/Pindo.Tools.
+- The earlier desktop snapshot was imported on October 9, 2026, from the existing local checkout. Its source HEAD was `960ba2e` (September 21, 2026), plus modified/untracked work whose creation dates were not independently established. The compact WPF composer, presentation helpers and tray assets retain that lineage.
+- The shared Core/Tools implementation was integrated with PR #2's history preserved in commit `0056687`. It is now maintained as Pindo.Core/Pindo.Tools.
 - The pre-cleanup shared baseline is `8804d20`. Detailed historical import inventories, validation notes and previous disclosures remain accessible in Git history. The current cleanup was AI-assisted using OpenAI Codex; it does not imply completion of any past hackathon requirements.
 
 ## Retained dependencies

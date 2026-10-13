@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
-using LocalTutor.Core;
+using Pindo.Core;
 using LocalTutor.Desktop.Interop;
 using LocalTutor.Desktop.Services;
 

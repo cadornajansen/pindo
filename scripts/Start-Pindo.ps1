@@ -2,8 +2,8 @@ param([switch]$Preview)
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$executable = Join-Path $repositoryRoot 'Pointly.App\bin\Debug\net10.0-windows10.0.26100.0\Pointly.App.exe'
-$running = Get-Process Pointly.App -ErrorAction SilentlyContinue |
+$executable = Join-Path $repositoryRoot 'Pindo.App\bin\Debug\net10.0-windows10.0.26100.0\Pindo.App.exe'
+$running = Get-Process Pindo.App -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $executable }
 if ($running) {
     Write-Host 'Pindo is already running. Use Ctrl+Space, or Exit Pindo from its tray menu before rebuilding.'

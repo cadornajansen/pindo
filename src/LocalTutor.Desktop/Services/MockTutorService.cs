@@ -1,4 +1,4 @@
-using LocalTutor.Core;
+using Pindo.Core;
 
 namespace LocalTutor.Desktop.Services;
 

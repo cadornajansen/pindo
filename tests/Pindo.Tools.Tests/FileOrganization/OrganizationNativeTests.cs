@@ -6,7 +6,7 @@ namespace Pindo.Tools.Tests.FileOrganization;
 
 public sealed class OrganizationNativeTests : IDisposable
 {
-    private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-organize-native-" + Guid.NewGuid().ToString("N"));
+    private readonly string root = Path.Combine(Path.GetTempPath(), "pindo-organize-native-" + Guid.NewGuid().ToString("N"));
     public OrganizationNativeTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, recursive: true);
     private string At(string name) => Path.Combine(root, name);
@@ -37,7 +37,7 @@ public sealed class OrganizationNativeTests : IDisposable
         Assert.StartsWith("OutputConflict:", conflict.InnerException!.Message);
         Assert.Equal("source", File.ReadAllText(At("source.txt"))); Assert.Equal("existing", File.ReadAllText(At("existing.txt")));
         if (!Directory.Exists("/dev/shm") || !DriveInfo.GetDrives().Any(d => d.Name.TrimEnd('/') == "/dev/shm")) return;
-        string destination = Path.Combine("/dev/shm", "localtutor-cross-volume-" + Guid.NewGuid().ToString("N"));
+        string destination = Path.Combine("/dev/shm", "pindo-cross-volume-" + Guid.NewGuid().ToString("N"));
         var crossVolume = Assert.Throws<TargetInvocationException>(() => move.Invoke(null, [At("source.txt"), destination]));
         Assert.StartsWith("CrossVolumeMoveUnsupported:", crossVolume.InnerException!.Message);
         Assert.True(File.Exists(At("source.txt"))); Assert.False(File.Exists(destination));

@@ -14,9 +14,9 @@ public sealed class CompressionCodecCollection;
 [Collection("Compression codec tests")]
 public sealed class ImageCompressionTests : IDisposable
 {
-    private readonly string workspace = Path.Combine(Path.GetTempPath(), "localtutor-compression-tests-" + Guid.NewGuid().ToString("N"));
-    private readonly string executable = Environment.GetEnvironmentVariable("LOCAL_TUTOR_IMAGEMAGICK") ??
-        (OperatingSystem.IsWindows() ? throw new InvalidOperationException("Set LOCAL_TUTOR_IMAGEMAGICK to a trusted installed magick.exe.") : "/usr/bin/convert");
+    private readonly string workspace = Path.Combine(Path.GetTempPath(), "pindo-compression-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly string executable = Environment.GetEnvironmentVariable("PINDO_IMAGEMAGICK") ??
+        (OperatingSystem.IsWindows() ? throw new InvalidOperationException("Set PINDO_IMAGEMAGICK to a trusted installed magick.exe.") : "/usr/bin/convert");
     private string Source => Path.Combine(workspace, "lesson.png");
     private string Output => Path.Combine(workspace, "lesson-shared.png");
     private ImageMagickCodec Codec => new(executable);

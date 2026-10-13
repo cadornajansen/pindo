@@ -6,13 +6,13 @@ namespace Pindo.Tools.Tests.VideoDownload;
 
 public sealed class NativeVideoProcessTests : IDisposable
 {
-    private readonly string workspace = Path.Combine(Path.GetTempPath(), "localtutor-native-video-test-" + Guid.NewGuid().ToString("N"));
+    private readonly string workspace = Path.Combine(Path.GetTempPath(), "pindo-native-video-test-" + Guid.NewGuid().ToString("N"));
     public NativeVideoProcessTests() => Directory.CreateDirectory(workspace);
 
     [PinnedVideoBinaryFact]
     public async Task PinnedBinaryAcceptsTheFixedOptionsWithoutNetwork()
     {
-        NativeYtDlpProcess worker = new(Environment.GetEnvironmentVariable("LOCAL_TUTOR_YTDLP")!);
+        NativeYtDlpProcess worker = new(Environment.GetEnvironmentVariable("PINDO_YTDLP")!);
         Assert.Equal(YtDlpClient.SupportedVersion, (await worker.VersionAsync(CancellationToken.None)).Trim());
         using Process native = new() { StartInfo = worker.BuildStart(workspace, ["--help"]) };
         native.Start(); native.StandardInput.Close();
@@ -81,7 +81,7 @@ public sealed class PinnedVideoBinaryFactAttribute : FactAttribute
 {
     public PinnedVideoBinaryFactAttribute()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("LOCAL_TUTOR_YTDLP")))
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PINDO_YTDLP")))
             Skip = "Optional offline check requires an installed pinned binary; stub process tests always run.";
     }
 }

@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using Pindo.App.Tools;
-using Pindo.App.Tutor;
+using Pindo.App.Planning;
 
 namespace Pindo.App.Tests;
 

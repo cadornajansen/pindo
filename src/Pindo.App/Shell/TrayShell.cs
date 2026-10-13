@@ -9,18 +9,13 @@ public sealed class TrayShell : IDisposable
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu = new();
     private readonly Icon _icon;
-    public TrayShell(Action toggle, Action<bool> mute, Action interrupt, Action diagnostics, Action exit)
+    public TrayShell(Action toggle, Action exit)
     {
         _icon = CreateIcon();
         _menu.Items.Add("Summon / dismiss Pindo", null, (_, _) => toggle());
-        var muted = new ToolStripMenuItem("Microphone muted") { CheckOnClick = true };
-        muted.CheckedChanged += (_, _) => mute(muted.Checked);
-        _menu.Items.Add(muted);
-        _menu.Items.Add("Interrupt and listen", null, (_, _) => interrupt());
-        _menu.Items.Add("Development diagnostics", null, (_, _) => diagnostics());
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("Exit Pindo", null, (_, _) => exit());
-        _tray = new NotifyIcon { Icon = _icon, Text = "Pindo — Ctrl+Space", ContextMenuStrip = _menu, Visible = true };
+        _tray = new NotifyIcon { Icon = _icon, Text = "Pindo — Ctrl+Windows", ContextMenuStrip = _menu, Visible = true };
         _tray.DoubleClick += (_, _) => toggle();
     }
     public void Report(string text)

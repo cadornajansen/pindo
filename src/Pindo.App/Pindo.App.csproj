@@ -17,11 +17,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\src\Pindo.Tools\Pindo.Tools.csproj" />
+      <ProjectReference Include="..\Pindo.Tools\Pindo.Tools.csproj" />
       <Using Remove="System.Windows.Forms" />
       <Using Remove="System.Drawing" />
-      <PackageReference Include="AWSSDK.BedrockRuntime" Version="4.0.101.7" />
-      <PackageReference Include="NAudio" Version="2.2.1" />
     </ItemGroup>
 
 </Project>

@@ -53,7 +53,7 @@ public sealed class DownloadVideoTool(YtDlpClient client, VideoDownloadApproval 
                 throw new VideoToolException("PreviewChanged: metadata changed; prepare and approve a fresh preview.");
             await client.CheckMediaHostAsync(candidate, cancellationToken);
             output = preview.Paths.ResolveOutput(output);
-            scratch = Path.Combine(Path.GetDirectoryName(output)!, ".localtutor-video-" + Guid.NewGuid().ToString("N"));
+            scratch = Path.Combine(Path.GetDirectoryName(output)!, ".pindo-video-" + Guid.NewGuid().ToString("N"));
             NativeYtDlpProcess.CreateScratch(scratch);
             string downloadedId = await client.Process.DownloadAsync(input.Url, candidate, scratch, progress, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();

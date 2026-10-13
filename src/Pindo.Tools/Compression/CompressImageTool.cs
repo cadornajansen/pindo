@@ -85,7 +85,7 @@ public sealed class CompressImageTool(ImageCompressionApproval approval, IProgre
             // Recheck after progress callbacks and before creating any sibling file.
             output = preview.Paths.ResolveOutput(input.OutputPath);
             cancellationToken.ThrowIfCancellationRequested();
-            string path = Path.Combine(Path.GetDirectoryName(output)!, ".localtutor-compression-" + Guid.NewGuid().ToString("N") + ".partial");
+            string path = Path.Combine(Path.GetDirectoryName(output)!, ".pindo-compression-" + Guid.NewGuid().ToString("N") + ".partial");
             await using (FileStream stream = new(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, FileOptions.Asynchronous))
             {
                 temporary = path;

@@ -139,7 +139,7 @@ public sealed class SplitPdfTool(PdfApproval approval, IProgress<PdfProgress>? p
             preview.Consume(Id, input);
             await PdfPlanning.VerifySourcesAsync(preview, token);
             string directory = Path.GetDirectoryName(preview.ResolvedOutputs[0])!;
-            string staging = Path.Combine(directory, ".localtutor-pdf-" + Guid.NewGuid().ToString("N"));
+            string staging = Path.Combine(directory, ".pindo-pdf-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(staging);
             List<string> published = [];
             try
@@ -288,7 +288,7 @@ public sealed class RenderPdfPagesTool(PdfApproval approval, IProgress<PdfProgre
             preview.Consume(Id, input);
             await PdfPlanning.VerifySourcesAsync(preview, token);
             string directory = Path.GetDirectoryName(preview.ResolvedOutputs[0])!;
-            string staging = Path.Combine(directory, ".localtutor-pdf-" + Guid.NewGuid().ToString("N"));
+            string staging = Path.Combine(directory, ".pindo-pdf-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(staging);
             List<string> published = [];
             try
@@ -437,7 +437,7 @@ internal static class PdfPlanning
     }
 
     internal static string TempSibling(string output, string extension) =>
-        Path.Combine(Path.GetDirectoryName(output)!, ".localtutor-pdf-" + Guid.NewGuid().ToString("N") + extension);
+        Path.Combine(Path.GetDirectoryName(output)!, ".pindo-pdf-" + Guid.NewGuid().ToString("N") + extension);
 
     internal static void RequireNewOutputs(IEnumerable<string> outputs)
     {

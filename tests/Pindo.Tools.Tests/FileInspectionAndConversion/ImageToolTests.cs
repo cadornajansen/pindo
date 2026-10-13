@@ -9,9 +9,9 @@ namespace Pindo.Tools.Tests.FileInspectionAndConversion;
 
 public sealed class ImageToolTests : IDisposable
 {
-    private readonly string workspace = Path.Combine(Path.GetTempPath(), "localtutor-tests-" + Guid.NewGuid().ToString("N"));
-    private readonly string executable = Environment.GetEnvironmentVariable("LOCAL_TUTOR_IMAGEMAGICK") ??
-        (OperatingSystem.IsWindows() ? throw new InvalidOperationException("Set LOCAL_TUTOR_IMAGEMAGICK to the installed magick.exe for real codec tests.") : "/usr/bin/convert");
+    private readonly string workspace = Path.Combine(Path.GetTempPath(), "pindo-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly string executable = Environment.GetEnvironmentVariable("PINDO_IMAGEMAGICK") ??
+        (OperatingSystem.IsWindows() ? throw new InvalidOperationException("Set PINDO_IMAGEMAGICK to the installed magick.exe for real codec tests.") : "/usr/bin/convert");
 
     public ImageToolTests() => Directory.CreateDirectory(workspace);
     public void Dispose() => Directory.Delete(workspace, recursive: true);
@@ -306,7 +306,7 @@ public sealed class ImageToolTests : IDisposable
     public async Task NativeTimeoutAndInFlightCancellationTerminateWorker()
     {
         if (OperatingSystem.IsWindows()) return; // POSIX process fixture; Windows process-tree behavior remains a device check.
-        string[] scratchBefore = Directory.GetDirectories(Path.GetTempPath(), "localtutor-codec-*").Order().ToArray();
+        string[] scratchBefore = Directory.GetDirectories(Path.GetTempPath(), "pindo-codec-*").Order().ToArray();
         string fixture = PathFor("convert"), pidFile = PathFor("worker.pid"), input = PathFor("source.png"), output = PathFor("output.png");
         await File.WriteAllBytesAsync(input, Png());
         await File.WriteAllTextAsync(fixture, "#!/bin/sh\nprintf '%s' \"$$\" > '" + pidFile + "'\nprintf 'transient input' > \"$MAGICK_TEMPORARY_PATH/fixture.tmp\"\nwhile :; do sleep 1; done\n");
@@ -320,7 +320,7 @@ public sealed class ImageToolTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new InspectFileTool(Scope(input), new(fixture)).ExecuteAsync(new(input), cancellation.Token));
         AssertWorkerExited(pidFile);
         Assert.False(File.Exists(output));
-        Assert.Equal(scratchBefore, Directory.GetDirectories(Path.GetTempPath(), "localtutor-codec-*").Order().ToArray());
+        Assert.Equal(scratchBefore, Directory.GetDirectories(Path.GetTempPath(), "pindo-codec-*").Order().ToArray());
     }
 
     private static void AssertWorkerExited(string pidFile)

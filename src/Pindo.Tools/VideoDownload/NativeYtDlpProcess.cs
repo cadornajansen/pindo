@@ -53,7 +53,7 @@ internal sealed class NativeYtDlpProcess : IYtDlpProcess
 
     private async Task<string> RunIsolatedAsync(string[] arguments, int maxOutput, TimeSpan timeout, CancellationToken cancellationToken, bool ffmpegVersion = false)
     {
-        string scratch = Path.Combine(Path.GetTempPath(), "localtutor-video-" + Guid.NewGuid().ToString("N"));
+        string scratch = Path.Combine(Path.GetTempPath(), "pindo-video-" + Guid.NewGuid().ToString("N"));
         CreateScratch(scratch);
         try { return await RunAsync(arguments, scratch, maxOutput, timeout, null, null, cancellationToken, ffmpegVersion); }
         finally { DeleteScratch(scratch); }

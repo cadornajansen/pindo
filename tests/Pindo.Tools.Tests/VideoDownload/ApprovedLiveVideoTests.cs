@@ -8,16 +8,16 @@ public sealed class ApprovedLiveVideoTests
     [ApprovedLiveVideoFact]
     public async Task ApprovedSampleCanBeInspectedPreviewedAndDownloaded()
     {
-        string url = Environment.GetEnvironmentVariable("LOCAL_TUTOR_APPROVED_VIDEO_URL")!;
-        string executable = Environment.GetEnvironmentVariable("LOCAL_TUTOR_YTDLP")!;
+        string url = Environment.GetEnvironmentVariable("PINDO_APPROVED_VIDEO_URL")!;
+        string executable = Environment.GetEnvironmentVariable("PINDO_YTDLP")!;
         string? root = AppContext.BaseDirectory;
-        while (root is not null && !File.Exists(Path.Combine(root, "LocalTutor.slnx"))) root = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(root));
+        while (root is not null && !File.Exists(Path.Combine(root, "Pindo.slnx"))) root = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(root));
         Assert.NotNull(root);
         string workspace = Path.Combine(root!, "tests", "Pindo.Tools.Tests", "VideoDownload", ".manual-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(workspace);
         try
         {
-            YtDlpClient client = new(executable, Environment.GetEnvironmentVariable("LOCAL_TUTOR_FFMPEG"));
+            YtDlpClient client = new(executable, Environment.GetEnvironmentVariable("PINDO_FFMPEG"));
             using CancellationTokenSource deadline = new(TimeSpan.FromMinutes(4));
             var inspected = await new InspectVideoTool(client, url).ExecuteAsync(new InspectVideoInput(url), deadline.Token);
             Assert.True(inspected.Success, inspected.Error);
@@ -43,9 +43,9 @@ public sealed class ApprovedLiveVideoFactAttribute : FactAttribute
 {
     public ApprovedLiveVideoFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("LOCAL_TUTOR_APPROVED_LIVE_VIDEO_TEST") != "1" ||
-            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("LOCAL_TUTOR_APPROVED_VIDEO_URL")) ||
-            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("LOCAL_TUTOR_YTDLP")))
+        if (Environment.GetEnvironmentVariable("PINDO_APPROVED_LIVE_VIDEO_TEST") != "1" ||
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PINDO_APPROVED_VIDEO_URL")) ||
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PINDO_YTDLP")))
             Skip = "Requires specific user approval, an approved URL, and a trusted pinned yt-dlp executable; no network in default tests.";
     }
 }

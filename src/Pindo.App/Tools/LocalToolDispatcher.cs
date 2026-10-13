@@ -8,7 +8,7 @@ using Pindo.Tools.FileOrganization;
 using Pindo.Tools.Pdf;
 using Pindo.Tools.VideoDownload;
 using Pindo.Tools.ZipArchive;
-using Pindo.App.Tutor;
+using Pindo.App.Planning;
 
 namespace Pindo.App.Tools;
 
@@ -26,7 +26,7 @@ public sealed class LocalToolDispatcher(ToolDependencies dependencies)
         ["file.find_duplicates"] = typeof(FindDuplicatesInput)
     };
 
-    public static object Catalog => Inputs.Select(entry => new
+    public static object Catalog => Inputs.Where(entry => entry.Key != "file.organize_apply").Select(entry => new
     {
         id = entry.Key,
         arguments = entry.Value.GetProperties().Select(property => new
@@ -34,8 +34,7 @@ public sealed class LocalToolDispatcher(ToolDependencies dependencies)
             name = JsonNamingPolicy.CamelCase.ConvertName(property.Name),
             type = Describe(property.PropertyType)
         }),
-        note = entry.Key == "file.organize_apply" ? "Host-only continuation of an existing reviewed organization plan; propose file.organize_preview instead." :
-            "Use only selected paths. Output paths must be new files inside the selected workspace."
+        note = "Use only selected paths. Output paths must be new files inside the selected workspace."
     }).ToArray();
 
     private static string Describe(Type type)
@@ -50,7 +49,7 @@ public sealed class LocalToolDispatcher(ToolDependencies dependencies)
     public static ToolInput Parse(ToolProposal proposal)
     {
         if (!Inputs.TryGetValue(proposal.ToolId, out Type? type)) throw new InvalidOperationException("That tool is not available.");
-        var input = (ToolInput?)proposal.Arguments.Deserialize(type, OpenRouterPlanner.Json)
+        var input = (ToolInput?)proposal.Arguments.Deserialize(type, UtilityJson.Options)
             ?? throw new InvalidOperationException("Missing tool arguments.");
         IReadOnlyList<string> errors = input.Validate();
         if (errors.Count > 0) throw new InvalidOperationException(string.Join("\n", errors));
@@ -58,7 +57,7 @@ public sealed class LocalToolDispatcher(ToolDependencies dependencies)
     }
 
     private ImageMagickCodec Images() => new(ToolDependencies.RequireFile(dependencies.ImageMagick, "ImageMagick"));
-    private PopplerPdfTools Pdf() => new(dependencies.Poppler ?? throw new InvalidOperationException("Configure LOCAL_TUTOR_POPPLER first."));
+    private PopplerPdfTools Pdf() => new(dependencies.Poppler ?? throw new InvalidOperationException("Configure PINDO_POPPLER first."));
     private YtDlpClient Video() => new(ToolDependencies.RequireFile(dependencies.YtDlp, "yt-dlp"), dependencies.Ffmpeg);
     private static T Require<T>(ToolResult<T> result) => result.Success && result.Value is not null
         ? result.Value : throw new InvalidOperationException(result.Error ?? "The operation failed.");

@@ -8,7 +8,7 @@ namespace Pindo.Tools.Tests.VideoDownload;
 public sealed class VideoToolTests : IDisposable
 {
     private const string Url = "https://www.youtube.com/watch?v=abcdefghijk";
-    private readonly string workspace = Path.Combine(Path.GetTempPath(), "localtutor-video-test-" + Guid.NewGuid().ToString("N"));
+    private readonly string workspace = Path.Combine(Path.GetTempPath(), "pindo-video-test-" + Guid.NewGuid().ToString("N"));
     private readonly StubProcess process = new();
     private YtDlpClient Client => new(process, (_, _) => Task.FromResult(new[] { IPAddress.Parse("8.8.8.8") }));
     private DownloadVideoInput Input => new(Url, Path.Combine(workspace, "lesson.mp4"), VideoQuality.Mp4_360p);

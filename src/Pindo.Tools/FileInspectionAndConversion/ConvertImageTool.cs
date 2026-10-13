@@ -39,7 +39,7 @@ public sealed class ConvertImageTool(FileAccessScope access, ImageMagickCodec co
             progress?.Report(new("Saving", 90));
             cancellationToken.ThrowIfCancellationRequested();
             output = access.ResolveOutput(input.OutputPath);
-            string candidate = Path.Combine(Path.GetDirectoryName(output)!, ".localtutor-" + Guid.NewGuid().ToString("N") + ".partial");
+            string candidate = Path.Combine(Path.GetDirectoryName(output)!, ".pindo-" + Guid.NewGuid().ToString("N") + ".partial");
             await using (FileStream stream = new(candidate, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, FileOptions.Asynchronous))
             {
                 temporary = candidate;

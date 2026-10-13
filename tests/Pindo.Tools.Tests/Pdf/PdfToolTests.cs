@@ -9,10 +9,10 @@ namespace Pindo.Tools.Tests.Pdf;
 
 public sealed class PdfToolTests : IDisposable
 {
-    private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-pdf-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly string root = Path.Combine(Path.GetTempPath(), "pindo-pdf-tests-" + Guid.NewGuid().ToString("N"));
     private readonly string toolsPath = Environment.GetEnvironmentVariable("POPPLER_BIN_DIR") ?? "/usr/bin";
-    private readonly string imageToolsPath = Environment.GetEnvironmentVariable("LOCAL_TUTOR_IMAGEMAGICK") ??
-        (OperatingSystem.IsWindows() ? throw new InvalidOperationException("Set LOCAL_TUTOR_IMAGEMAGICK for PDF image decode checks.") : "/usr/bin/convert");
+    private readonly string imageToolsPath = Environment.GetEnvironmentVariable("PINDO_IMAGEMAGICK") ??
+        (OperatingSystem.IsWindows() ? throw new InvalidOperationException("Set PINDO_IMAGEMAGICK for PDF image decode checks.") : "/usr/bin/convert");
     private PopplerPdfTools Tools => new(toolsPath);
 
     public PdfToolTests()
@@ -209,7 +209,7 @@ public sealed class PdfToolTests : IDisposable
             .ExecuteAsync(new("source.pdf"), canceled.Token));
         Assert.ThrowsAny<Exception>(() => Scope([At("../outside.pdf")], "output.pdf"));
         Assert.ThrowsAny<Exception>(() => Scope(["source.pdf"], "../escape.pdf"));
-        Assert.Empty(Directory.GetFiles(root, ".localtutor-pdf-*", SearchOption.AllDirectories));
+        Assert.Empty(Directory.GetFiles(root, ".pindo-pdf-*", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -230,7 +230,7 @@ public sealed class PdfToolTests : IDisposable
             .ExecuteAsync(new("two.pdf", [1, 2], "cancelled", "page", PdfImageFormat.Png), canceled.Token));
         Assert.False(File.Exists(At("cancelled/page-001.png")));
         Assert.False(File.Exists(At("cancelled/page-002.png")));
-        Assert.Empty(Directory.GetFiles(At("cancelled"), ".localtutor-pdf-*", SearchOption.TopDirectoryOnly));
+        Assert.Empty(Directory.GetFiles(At("cancelled"), ".pindo-pdf-*", SearchOption.TopDirectoryOnly));
     }
 
     private sealed class InlineProgress(Action<PdfProgress> callback) : IProgress<PdfProgress>

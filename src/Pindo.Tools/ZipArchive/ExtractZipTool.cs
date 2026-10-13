@@ -44,7 +44,7 @@ public sealed class ExtractZipTool(ArchiveApproval approval, IProgress<ArchivePr
             progress?.Report(new("Extracting", 0, current.Entries.Length, 0));
             output = preview.Scope.Output(input.OutputDirectory);
             token.ThrowIfCancellationRequested();
-            string stage = Path.Combine(Path.GetDirectoryName(output)!, ".localtutor-zip-" + Guid.NewGuid().ToString("N") + ".partial");
+            string stage = Path.Combine(Path.GetDirectoryName(output)!, ".pindo-zip-" + Guid.NewGuid().ToString("N") + ".partial");
             Directory.CreateDirectory(stage);
             temporary = stage;
             source.Position = 0;

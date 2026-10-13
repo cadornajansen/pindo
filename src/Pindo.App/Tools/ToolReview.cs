@@ -2,7 +2,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Pindo.App.Tutor;
+using Pindo.App.Planning;
 
 namespace Pindo.App.Tools;
 
@@ -24,7 +24,7 @@ public sealed class ToolReview(string title, object details, Func<CancellationTo
 
     public static string Format(object value)
     {
-        JsonElement json = JsonSerializer.SerializeToElement(value, OpenRouterPlanner.Json);
+        JsonElement json = JsonSerializer.SerializeToElement(value, UtilityJson.Options);
         var text = new StringBuilder();
         void Write(JsonElement item, int depth)
         {
@@ -52,7 +52,7 @@ public sealed record ToolSelection(string Workspace, string[] Files, string[] Fo
 public sealed record ToolDependencies(string? ImageMagick, string? Poppler, string? YtDlp, string? Ffmpeg)
 {
     private static string? Read(string name) => Environment.GetEnvironmentVariable(name) ?? Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.User);
-    public static ToolDependencies Load() => new(Read("LOCAL_TUTOR_IMAGEMAGICK"), Read("LOCAL_TUTOR_POPPLER"), Read("LOCAL_TUTOR_YTDLP"), Read("LOCAL_TUTOR_FFMPEG"));
+    public static ToolDependencies Load() => new(Read("PINDO_IMAGEMAGICK"), Read("PINDO_POPPLER"), Read("PINDO_YTDLP"), Read("PINDO_FFMPEG"));
     public static string RequireFile(string? path, string label) => path is not null && Path.IsPathFullyQualified(path) && File.Exists(path)
         ? path : throw new InvalidOperationException($"{label} is not configured. Run scripts/Setup-ToolDependencies.ps1.");
 }

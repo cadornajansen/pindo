@@ -9,7 +9,7 @@ namespace Pindo.Tools.Tests.ZipArchive;
 
 public sealed class ArchiveToolTests : IDisposable
 {
-    private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-zip-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly string root = Path.Combine(Path.GetTempPath(), "pindo-zip-tests-" + Guid.NewGuid().ToString("N"));
     public ArchiveToolTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, recursive: true);
     private string At(string name) => Path.GetFullPath(Path.Combine(root, name));
@@ -49,7 +49,7 @@ public sealed class ArchiveToolTests : IDisposable
         return result.Value!;
     }
 
-    private void NoPartials() => Assert.Empty(Directory.EnumerateFileSystemEntries(root, ".localtutor-zip-*"));
+    private void NoPartials() => Assert.Empty(Directory.EnumerateFileSystemEntries(root, ".pindo-zip-*"));
 
     [Fact]
     public async Task NestedFoldersAndEmptyDirectoriesRoundTripWithoutChangingOriginals()

@@ -43,7 +43,7 @@ public sealed class CreateZipTool(ArchiveApproval approval, IProgress<ArchivePro
             progress?.Report(new("Writing", 0, current.Entries.Length, 0));
             output = preview.Scope.Output(input.OutputPath);
             token.ThrowIfCancellationRequested();
-            string path = Path.Combine(Path.GetDirectoryName(output)!, ".localtutor-zip-" + Guid.NewGuid().ToString("N") + ".partial");
+            string path = Path.Combine(Path.GetDirectoryName(output)!, ".pindo-zip-" + Guid.NewGuid().ToString("N") + ".partial");
             long total = 0;
             int completed = 0;
             await using (FileStream target = new(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.Asynchronous))

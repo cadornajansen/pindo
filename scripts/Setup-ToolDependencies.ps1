@@ -19,6 +19,16 @@ $poppler = if ($pdfInfo) { Split-Path -Parent $pdfInfo } else { $null }
 $ytdlp = Find-PackageFile 'yt-dlp.yt-dlp_*' 'yt-dlp.exe'
 if (-not $ytdlp) { $ytdlp = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\yt-dlp.exe' }
 $ffmpeg = Find-PackageFile 'Gyan.FFmpeg_*' 'ffmpeg.exe'
+# Respect explicit Pindo paths before using auto-discovered installations.
+function Read-ConfiguredPath([string]$name) {
+    $configured = [Environment]::GetEnvironmentVariable($name, 'Process')
+    if ([string]::IsNullOrWhiteSpace($configured)) { $configured = [Environment]::GetEnvironmentVariable($name, 'User') }
+    return $configured
+}
+if ($configured = Read-ConfiguredPath 'PINDO_IMAGEMAGICK') { $magick = $configured }
+if ($configured = Read-ConfiguredPath 'PINDO_POPPLER') { $poppler = $configured; $pdfInfo = Join-Path $poppler 'pdfinfo.exe' }
+if ($configured = Read-ConfiguredPath 'PINDO_YTDLP') { $ytdlp = $configured }
+if ($configured = Read-ConfiguredPath 'PINDO_FFMPEG') { $ffmpeg = $configured }
 foreach ($entry in @{ ImageMagick=$magick; Poppler=$pdfInfo; 'yt-dlp'=$ytdlp; FFmpeg=$ffmpeg }.GetEnumerator()) {
     if (-not $entry.Value -or -not (Test-Path -LiteralPath $entry.Value -PathType Leaf)) { throw "Missing $($entry.Key). Run this script with -Install." }
 }
@@ -28,9 +38,11 @@ foreach ($name in @('pdfinfo','pdfunite','pdfseparate','pdfimages','pdftotext','
 if ((& $ytdlp --version) -ne '2026.08.19') { throw 'yt-dlp must be version 2026.08.19.' }
 $ffmpegVersion = (& $ffmpeg -version | Select-Object -First 1)
 if ($ffmpegVersion -notmatch '^ffmpeg version 9\.0\.1(?:-| )') { throw 'FFmpeg must be version 9.0.1.' }
-$settings = @{ LOCAL_TUTOR_IMAGEMAGICK=$magick; LOCAL_TUTOR_POPPLER=$poppler; POPPLER_BIN_DIR=$poppler; LOCAL_TUTOR_YTDLP=$ytdlp; LOCAL_TUTOR_FFMPEG=$ffmpeg }
+$settings = @{ PINDO_IMAGEMAGICK=$magick; PINDO_POPPLER=$poppler; POPPLER_BIN_DIR=$poppler; PINDO_YTDLP=$ytdlp; PINDO_FFMPEG=$ffmpeg }
 foreach ($entry in $settings.GetEnumerator()) {
-    [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'User')
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($entry.Key, 'User'))) {
+        [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'User')
+    }
     [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
     Write-Host "$($entry.Key): $($entry.Value)"
 }

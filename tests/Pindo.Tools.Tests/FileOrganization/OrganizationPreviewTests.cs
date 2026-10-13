@@ -5,7 +5,7 @@ namespace Pindo.Tools.Tests.FileOrganization;
 
 public sealed class OrganizationPreviewTests : IDisposable
 {
-    private readonly string root = Path.Combine(Path.GetTempPath(), "localtutor-organize-" + Guid.NewGuid().ToString("N"));
+    private readonly string root = Path.Combine(Path.GetTempPath(), "pindo-organize-" + Guid.NewGuid().ToString("N"));
     public OrganizationPreviewTests() { Directory.CreateDirectory(root); Directory.CreateDirectory(At("sorted")); }
     public void Dispose() => Directory.Delete(root, recursive: true);
     private string At(string name) => Path.GetFullPath(Path.Combine(root, name));

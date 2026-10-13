@@ -59,7 +59,7 @@ public sealed class ImageMagickCodec
         if (!File.Exists(executable)) throw new FileToolException("MissingDependency: configure an installed local ImageMagick with PNG, JPEG, and WebP codecs.");
         // ImageMagick may spool stdin even with the pixel disk cache disabled. Keep that
         // transient copy in an isolated directory and remove it after the worker exits.
-        string scratch = Path.Combine(Path.GetTempPath(), "localtutor-codec-" + Guid.NewGuid().ToString("N"));
+        string scratch = Path.Combine(Path.GetTempPath(), "pindo-codec-" + Guid.NewGuid().ToString("N"));
         if (OperatingSystem.IsWindows()) Directory.CreateDirectory(scratch);
         else Directory.CreateDirectory(scratch, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

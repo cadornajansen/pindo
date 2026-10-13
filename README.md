@@ -1,58 +1,83 @@
 # Pindo
 
-A Windows-native software tutor for Filipino educators. The user performs actions; the app captures the active window and shows visual guidance.
+A compact Windows-native chat for reviewed file utilities. Type what you need, select your files, review the proposal, then choose **Run**.
 
-## Active desktop baseline
+**Cloud-only planning through OpenRouter; utility execution runs locally.** Requests and selected path metadata go to the cloud. Pindo does not capture your screen, listen to your microphone, or operate another app.
 
-Open **`Pointly.sln`** in Rider. `Pointly.App` is the active desktop implementation, imported from the existing Pointly working tree on October 9, 2026. Its product name and tray icon already say Pindo; internal Pointly project names are retained to keep the import verifiable.
+## Run
 
-The active desktop app references the Core/Tools libraries under `src/`, integrated from PR #2 with its history preserved. `LocalTutor.slnx` also contains the earlier scaffold app; use `Pointly.sln` to run Pindo. Do not run both desktop apps at once: their global shortcuts can collide.
-
-Requirements: Windows 11 build 26100 or newer for this baseline, and the .NET 10 SDK. The project targets `net10.0-windows10.0.26100.0`; other Windows versions are unverified.
-
-```powershell
-dotnet restore Pointly.sln
-dotnet build Pointly.sln -c Debug --no-restore
-dotnet test Pointly.sln -c Debug --no-build --no-restore
-```
-
-To build and start the live app with your locally saved cloud credentials:
+Requirements: Windows 11 build 26100+, .NET 10 SDK, and an OpenRouter API key configured as `OPENROUTER_API_KEY` in your Windows user environment. Open `Pindo.sln` in Rider or Visual Studio.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Start-Pindo.ps1
 ```
 
-The app starts in the system tray. Focus the app you need help with, then press **Ctrl+Space** to open the composer. Type a question and press **Enter**; **Shift+Enter** adds a line. Click the microphone to start voice, and click again to mute it. A crossed-out microphone means recording is off. **Escape** or **Ctrl+Space** dismisses the composer. Exit through the tray menu before rebuilding. Close other Pindo/Pointly instances first.
+Press and release **Ctrl+Windows** (no Space) to open/dismiss chat. Either left/right modifier and either press order work. Adding another key cancels Pindo's toggle and leaves the Windows shortcut alone. Escape cancels/dismisses. Enter sends; Shift+Enter inserts a newline. The tray menu also opens Pindo.
 
-For a visual preview without AI requests, add `-Preview` to the launcher command. See [the chat UI change and validation](docs/CHAT_UI.md).
+Use **+** to select files, folders and a workspace. Ask, for example, "Create a ZIP named lesson.zip from these files." Missing information produces a clarification. A proposal never runs until you approve its preview. Selection changes clear the pending conversation; send the full request again. Last tool result remains available through **+** until app exit.
 
-## Current capabilities and limits
-
-The imported code includes window tracking, UI Automation, Windows.Graphics.Capture, visual overlays, step verification, walkthroughs, and voice infrastructure. Historical source notes are preserved under [docs/pointly-baseline](docs/pointly-baseline/PRODUCT.md); their verification claims describe the source project.
-
-**Local inference is not integrated yet.** The runtime uses AssemblyAI for tutor selection, OpenRouter (or optional Bedrock) for vision, and ElevenLabs for voice. The composer starts with recording off. The live launcher selects OpenRouter for vision and refreshes credentials from Windows user environment variables. Tutor HTTP failures fall back to screenshot guidance. Do not describe this baseline as offline.
-
-The selected local candidate is **MAI-UI-2B**, community Ollama package `maternion/mai-ui:2b`. The user is managing its download. Installing it does not wire it into this app. No benchmark result is claimed yet.
-
-This pass adds cloud goal planning, step-by-step verification, animated annotations and reviewed chat tools. See [live tutoring setup, execution flow and validation](docs/LIVE_TUTORING.md). While thinking, inputs are disabled; Cancel, Escape and Ctrl+Space remain available. Check again captures fresh state and does not skip verification.
-
-Use **+** to select files and a workspace, then ask for an operation. Review its proposed inputs and outputs and explicitly click **Run**. Existing outputs are never overwritten. Duplicate detection only reports matches. Document/media conversion, media compression and PDF optimization remain unavailable.
-
-Install and configure the tools' public Windows dependencies once:
+To inspect the UI without cloud requests:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Setup-ToolDependencies.ps1 -Install
-dotnet test tests/LocalTutor.Tests/LocalTutor.Tests.csproj
+powershell -ExecutionPolicy Bypass -File .\scripts\Start-Pindo.ps1 -Preview
 ```
 
-Restart Pindo after configuring dependencies. Run the setup script without `-Install` to check installed dependencies. Normal test commands do not call cloud APIs; live acceptance tests are opt-in.
+Exit Pindo from its tray before rebuilding. Only one instance may run. Session state is in memory.
 
-Local model testing comes after this pass. Qwen3-1.7B may be tested for text planning/tool selection; screenshot understanding still needs a vision model. No local inference result is claimed.
+## Utilities
 
-## Repository and disclosure
+| Family | Available |
+| --- | --- |
+| Files/images | Inspect; PNG/JPEG/WebP conversion; PNG compression |
+| ZIP | Create and extract |
+| PDF | Inspect, merge, split, extract text, render pages |
+| Organization | Preview and approve moves; report exact duplicates |
+| Video | Inspect/download supported public YouTube/Vimeo URLs |
 
-Shared repository: [cadornajansen/pindo](https://github.com/cadornajansen/pindo).
+Selected-path restrictions, five-minute single-use reviews, changed-input checks and no-overwrite rules remain enforced. Duplicate detection does not delete files. Organization may report partial outcomes with a reverse log; cancellation does not undo completed writes. Unsupported requests return an explanation.
 
-Pointly contains pre-existing implementation. The team supplied the rule: “Pre-existing code is allowed only if the project is substantially built during the hackathon, with prior work disclosed.” The import itself does not establish substantial new development. Keep the reused baseline and hackathon contributions separately identifiable in the submission.
+Image/PDF/video operations require public native dependencies. Configure installed binaries, or add `-Install` to install them:
 
-See [the import inventory and validation](docs/POINTLY_IMPORT.md), [disclosures](docs/HACKATHON_COMPLIANCE.md), and [documentation index](docs/README.md).
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-ToolDependencies.ps1
+```
+
+The setup script checks ImageMagick, Poppler, yt-dlp and FFmpeg. It preserves existing Pindo user settings. No native executables are bundled with this repository.
+
+## Configuration
+
+- `OPENROUTER_API_KEY`: required for cloud requests.
+- `PINDO_OPENROUTER_MODEL`: optional; source default is `google/gemini-3.8-flash`.
+- `PINDO_IMAGEMAGICK`, `PINDO_POPPLER`, `PINDO_YTDLP`, `PINDO_FFMPEG`: paths to the native utilities (Poppler uses its binary directory).
+
+On startup, configuration migration copies legacy model/tool settings only when the corresponding Pindo setting is absent. Existing values and old keys are preserved; secrets are never printed.
+
+## Code and tests
+
+```text
+src/Pindo.App          WPF chat, tray, shortcut, cloud planner, utility review
+src/Pindo.Core         Shared typed utility contracts
+src/Pindo.Tools        Local utility implementations
+tests/Pindo.App.Tests App, planner, review and shortcut tests
+tests/Pindo.Tools.Tests Utility and native dependency tests
+```
+
+The execution flow is `chat → cloud proposal → host validation → preview → Run → local utility → result`. The host controls permissions and cancellation; the model cannot authorize itself.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-Pindo.ps1
+```
+
+The app tests briefly show WPF windows. Live cloud requests are opt-in with `-LiveCloud`; live video tests remain separately opt-in. Test outputs/build products are ignored by Git.
+
+Run the native modifier-input check separately on an idle, unlocked desktop without typing:
+
+```powershell
+$env:PINDO_INPUT_TEST = '1'
+dotnet test tests/Pindo.App.Tests/Pindo.App.Tests.csproj --filter FullyQualifiedName~NativeMenuMask
+Remove-Item Env:PINDO_INPUT_TEST
+```
+
+This sends synthetic Ctrl/Windows input to validate Start-menu masking and released modifier state. Unit tests cover recognition, press/release order and cancellation; a physical-keyboard check remains useful on your device.
+
+See [cleanup validation and inventory](docs/CLEANUP.md) and [source/dependency attribution](docs/PROVENANCE.md). Tutoring, voice, vision, local models and obsolete scaffold code have been removed from the maintained tree. The next architecture redesign is separate work.
